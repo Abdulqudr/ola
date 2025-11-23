@@ -1,0 +1,32 @@
+{
+  "accountAssociation": {
+    "header": "",
+    "payload": "", 
+    "signature": ""
+  },
+  "baseBuilder": {
+    "ownerAddress": "0xe1Bd3D122995a3d3A253F564c1fD54d18407A657"
+  },
+  "miniapp": {
+    "version": "1",
+    "name": "CONNECT 4",
+    "homeUrl": "https://ola-azure.vercel.app/",
+    "iconUrl": "https://i.imgur.com/XFWrHQe.jpeg",
+    "imageUrl": "hhttps://i.imgur.com/XFWrHQe.jpeg",
+    "splashImageUrl": "https://i.imgur.com/XFWrHQe.jpeg",
+    "splashBackgroundColor": "#486DB8",
+    "subtitle": "The Ultimate Connect Challenge",
+    "description": "Think ahead, outsmart your opponent, and be the first to connect four pieces in any direction",
+    "screenshotUrls": [
+      "https://i.imgur.com/XFWrHQe.jpeg"
+    ],
+    "primaryCategory": "games",
+    "tags": ["puzzle", "strategy", "colors", "game", "fun"],
+    "heroImageUrl": "https://i.imgur.com/XFWrHQe.jpeg",
+    "tagline": "A fast, strategic game where you race to connect four before your opponent",
+    "ogTitle": "CONNECT 4",
+    "ogDescription": "Think ahead, outsmart your opponent, and be the first to connect four pieces in any direction",
+    "ogImageUrl": "https://i.imgur.com/XFWrHQe.jpeg",
+    "noindex": false
+  }
+}
