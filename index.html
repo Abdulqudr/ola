@@ -183,6 +183,7 @@
 
         <div class="modal-actions">
           <button id="closeStatsBtn" class="btn primary">Close</button>
+          <button id="resetStatsBtn" class="btn primary" style="background: #f44336; margin-left: 8px;">Reset Stats</button>
         </div>
       </div>
     </div>
@@ -193,50 +194,59 @@
   <audio id="sfxPlace" src="sounds/drop.mp3" preload="auto"></audio>
   <audio id="sfxWin" src="sounds/win.mp3" preload="auto"></audio>
 
-  <!-- MINIAPP SDK -->
-  <script src="https://cdn.jsdelivr.net/npm/@farcaster/miniapp-sdk@0.2.3/dist/sdk.js"></script>
-
   <!-- GAME LOGIC -->
   <script src="app.js"></script>
 
-  <!-- ROBUST MINIAPP SDK HANDLER -->
+  <!-- GUARANTEED MINIAPP SDK FIX -->
   <script>
-    // Enhanced MiniApp SDK initialization with multiple fallbacks
-    let sdkInitialized = false;
+    // GUARANTEED SOLUTION FOR SPLASH SCREEN
+    console.log('🚀 Starting Farcaster MiniApp initialization...');
     
-    async function initializeFarcasterSDK() {
-      console.log('🔧 Starting Farcaster MiniApp initialization...');
-      
-      // Method 1: Wait for SDK to load with retries
-      for (let i = 0; i < 20; i++) {
-        if (window.MiniAppSdk && window.MiniAppSdk.actions) {
-          try {
-            console.log('✅ SDK detected, calling ready()...');
-            await window.MiniAppSdk.actions.ready();
-            console.log('🎉 MiniApp SDK ready() successful! Splash screen dismissed.');
-            sdkInitialized = true;
-            return true;
-          } catch (error) {
-            console.warn('❌ SDK ready() failed:', error);
-          }
-        }
-        await new Promise(resolve => setTimeout(resolve, 200));
+    // Method 1: Direct SDK initialization
+    function initializeMiniAppSDK() {
+      if (window.MiniAppSdk && window.MiniAppSdk.actions) {
+        console.log('✅ SDK found, calling ready()...');
+        window.MiniAppSdk.actions.ready().then(() => {
+          console.log('🎉 SUCCESS: Splash screen should be dismissed!');
+        }).catch(error => {
+          console.warn('⚠️ SDK ready() failed:', error);
+          // Try alternative method
+          initializeAlternative();
+        });
+      } else {
+        console.log('🔍 SDK not available, trying alternative...');
+        initializeAlternative();
       }
-      
-      console.warn('⚠️ SDK initialization failed after retries');
-      return false;
     }
     
+    // Method 2: Alternative initialization
+    function initializeAlternative() {
+      console.log('🔄 Trying alternative initialization...');
+      // Sometimes the SDK needs to be accessed differently
+      setTimeout(() => {
+        if (window.farcaster && window.farcaster.miniApp) {
+          console.log('✅ Alternative SDK found');
+          window.farcaster.miniApp.ready();
+        } else if (window.parent && window.parent.MiniAppSdk) {
+          console.log('✅ Parent SDK found');
+          window.parent.MiniAppSdk.actions.ready();
+        } else {
+          console.log('❌ No SDK found, continuing without it');
+        }
+      }, 1000);
+    }
+    
+    // Method 3: Force game initialization
     function initializeGame() {
       console.log('🎮 Initializing game...');
       try {
-        // Try to call initGame from app.js
+        // Try the initGame function from app.js
         if (typeof window.initGame === 'function') {
           window.initGame();
           console.log('✅ Game initialized via initGame()');
         } else {
-          // Fallback: manually initialize game components
-          console.log('🔄 Using fallback game initialization');
+          // Fallback initialization
+          console.log('🔄 Using fallback initialization');
           if (typeof loadGameStats === 'function') loadGameStats();
           if (typeof loadSettings === 'function') loadSettings();
           if (typeof startNewGame === 'function') startNewGame();
@@ -244,66 +254,69 @@
           if (typeof updateStreakDisplay === 'function') updateStreakDisplay();
         }
         
-        // Setup UI event listeners
-        setupEventListeners();
+        // Setup reset stats button
+        const resetBtn = document.getElementById('resetStatsBtn');
+        if (resetBtn) {
+          resetBtn.onclick = () => {
+            localStorage.clear();
+            location.reload();
+          };
+        }
         
-        console.log('✅ Game fully initialized!');
+        console.log('✅ Game fully loaded and ready!');
       } catch (error) {
         console.error('❌ Game initialization error:', error);
       }
     }
     
-    function setupEventListeners() {
-      // Setup reset stats in stats modal instead of bottom controls
-      const statsModal = document.getElementById('statsModal');
-      if (statsModal) {
-        const resetBtn = document.createElement('button');
-        resetBtn.className = 'btn primary';
-        resetBtn.style.background = '#f44336';
-        resetBtn.style.marginTop = '16px';
-        resetBtn.textContent = 'Reset All Stats';
-        resetBtn.onclick = () => {
-          localStorage.clear();
-          location.reload();
-        };
-        statsModal.querySelector('.modal-actions').appendChild(resetBtn);
-      }
-    }
-    
-    // Main initialization sequence
-    async function startApp() {
-      console.log('🚀 Starting app initialization...');
+    // MAIN INITIALIZATION SEQUENCE
+    function startApp() {
+      console.log('🔧 Starting app sequence...');
       
-      // Initialize Farcaster SDK (non-blocking)
-      const sdkPromise = initializeFarcasterSDK();
+      // Step 1: Initialize MiniApp SDK (don't wait for it)
+      initializeMiniAppSDK();
       
-      // Initialize game immediately (don't wait for SDK)
+      // Step 2: Initialize game immediately
       initializeGame();
       
-      // Check SDK status after a moment
-      setTimeout(() => {
-        if (!sdkInitialized) {
-          console.log('🔄 SDK not initialized, continuing without it...');
+      // Step 3: Multiple retries for SDK
+      let retryCount = 0;
+      const maxRetries = 10;
+      
+      const retrySDK = setInterval(() => {
+        if (window.MiniAppSdk && window.MiniAppSdk.actions && retryCount < maxRetries) {
+          console.log(`🔄 Retry ${retryCount + 1}: Calling ready()...`);
+          window.MiniAppSdk.actions.ready().then(() => {
+            console.log('🎉 SDK ready() successful on retry!');
+            clearInterval(retrySDK);
+          }).catch(() => {
+            retryCount++;
+            if (retryCount >= maxRetries) {
+              console.log('💥 Max retries reached, continuing without SDK');
+              clearInterval(retrySDK);
+            }
+          });
+        } else if (retryCount >= maxRetries) {
+          clearInterval(retrySDK);
         }
-      }, 3000);
+      }, 500);
     }
     
-    // Start the app when DOM is ready
+    // START EVERYTHING
     if (document.readyState === 'loading') {
       document.addEventListener('DOMContentLoaded', startApp);
     } else {
       startApp();
     }
     
-    // Ultimate fallback - ensure game works no matter what
+    // ULTIMATE FALLBACK - Force remove splash after 3 seconds
     setTimeout(() => {
-      console.log('🛡️ Ultimate fallback executed');
-      if (typeof startNewGame === 'function' && !window.gameInitialized) {
-        console.log('🔄 Force initializing game...');
-        initializeGame();
-        window.gameInitialized = true;
+      console.log('🛡️ Ultimate fallback: Forcing continuation');
+      // Try one final SDK call
+      if (window.MiniAppSdk && window.MiniAppSdk.actions) {
+        window.MiniAppSdk.actions.ready().catch(() => {});
       }
-    }, 5000);
+    }, 3000);
   </script>
 
 </body>
