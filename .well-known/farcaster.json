@@ -22,7 +22,7 @@
     ],
     "primaryCategory": "games",
     "tags": ["puzzle", "strategy", "colors", "game", "fun"],
-    "heroImageUrl": "https://i.imgur.com/XFWrHQe.jpeg",
+    "heroImageUrl": "https://ola-azure.vercel.app/hero.png",
     "tagline": "Think. Block. Connect. Win.",
     "ogTitle": "FOUR IN A ROW",
     "ogDescription": "Think ahead, outsmart your opponent, and be the first to connect four pieces in any direction",
