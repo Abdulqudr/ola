@@ -204,80 +204,86 @@
 
   <!-- FIXED MINIAPP SDK READY HANDLER -->
   <script>
-    // Enhanced MiniApp SDK ready handler
+    // Enhanced MiniApp SDK initialization
     async function initializeMiniApp() {
-      console.log('Initializing MiniApp SDK...');
+      console.log('🚀 Starting MiniApp initialization...');
       
-      // Wait for SDK to load with timeout
-      const maxRetries = 10;
-      const retryDelay = 500;
+      let sdkReady = false;
+      const maxRetries = 15;
+      const retryDelay = 400;
       
+      // Try to initialize SDK
       for (let attempt = 1; attempt <= maxRetries; attempt++) {
         if (window.MiniAppSdk && window.MiniAppSdk.actions) {
           try {
-            console.log('SDK detected, calling ready()...');
-            
-            // Call ready() to dismiss splash screen
+            console.log(`✅ SDK detected (attempt ${attempt}), calling ready()...`);
             await window.MiniAppSdk.actions.ready();
-            console.log('✅ MiniApp SDK ready() successful - splash screen should dismiss');
-            
-            // Additional setup after ready
-            initializeApp();
-            return;
-            
+            console.log('🎉 MiniApp SDK ready() successful! Splash screen should dismiss.');
+            sdkReady = true;
+            break;
           } catch (error) {
             console.warn('❌ MiniAppSdk.actions.ready() failed:', error);
-            // Continue with app initialization even if ready fails
-            break;
           }
         }
         
-        console.log(`SDK not ready yet (attempt ${attempt}/${maxRetries}), waiting...`);
         if (attempt < maxRetries) {
+          console.log(`⏳ SDK not ready yet (attempt ${attempt}), waiting...`);
           await new Promise(resolve => setTimeout(resolve, retryDelay));
         }
       }
       
-      // Fallback: Initialize app even if SDK fails
-      console.log('SDK not available, initializing app in fallback mode');
-      initializeApp();
+      // Initialize the game regardless of SDK status
+      console.log('🎮 Initializing game...');
+      initializeGame();
+      
+      if (!sdkReady) {
+        console.warn('⚠️ SDK not available, but game initialized in fallback mode');
+      }
     }
 
-    // Your app initialization function
-    function initializeApp() {
-      console.log('🚀 App initializing...');
-      
-      // Initialize your game logic here
-      if (typeof initGame === 'function') {
-        initGame();
+    function initializeGame() {
+      try {
+        // Check if initGame function exists from app.js
+        if (typeof window.initGame === 'function') {
+          console.log('✅ Calling initGame from app.js...');
+          window.initGame();
+        } else {
+          console.log('⚠️ initGame not found, using direct initialization...');
+          // Fallback initialization
+          if (typeof loadGameStats === 'function') loadGameStats();
+          if (typeof loadSettings === 'function') loadSettings();
+          if (typeof startNewGame === 'function') startNewGame();
+          if (typeof updateAvatars === 'function') updateAvatars();
+          if (typeof updateStreakDisplay === 'function') updateStreakDisplay();
+        }
+        
+        // Set up reset stats button
+        const resetStatsBtn = document.getElementById('resetStatsBtn');
+        if (resetStatsBtn) {
+          resetStatsBtn.onclick = () => {
+            localStorage.clear();
+            location.reload();
+          };
+        }
+        
+        console.log('✅ Game initialization complete!');
+      } catch (error) {
+        console.error('❌ Game initialization failed:', error);
       }
-      
-      // Set up reset stats button
-      const resetStatsBtn = document.getElementById('resetStatsBtn');
-      if (resetStatsBtn) {
-        resetStatsBtn.onclick = () => {
-          localStorage.clear();
-          location.reload();
-        };
-      }
-      
-      console.log('✅ App initialization complete');
     }
 
-    // Start initialization when DOM is ready
+    // Start initialization
     if (document.readyState === 'loading') {
       document.addEventListener('DOMContentLoaded', initializeMiniApp);
     } else {
       initializeMiniApp();
     }
 
-    // Fallback timeout - ensure app loads even if everything else fails
+    // Ultimate fallback - ensure game loads within 5 seconds
     setTimeout(() => {
-      console.log('⏰ Fallback timeout reached, forcing app initialization');
-      if (typeof initGame === 'function') {
-        initGame();
-      }
-    }, 3000);
+      console.log('⏰ Ultimate fallback - forcing game load');
+      initializeGame();
+    }, 5000);
   </script>
 
 </body>
