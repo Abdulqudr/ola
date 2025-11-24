@@ -5,17 +5,12 @@
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>Four in a Row</title>
 
-  <!-- FRAME META TAGS — IMPROVED -->
+  <!-- FRAME META TAGS -->
   <meta property="fc:frame" content="vNext" />
   <meta property="fc:frame:image" content="https://ola-azure.vercel.app/hero.png" />
-  <meta property="fc:frame:button:1" content="🎮 Play Four in a Row" />
+  <meta property="fc:frame:image:aspect_ratio" content="1.91:1" />
+  <meta property="fc:frame:button:1" content="Play" />
   <meta property="fc:frame:post_url" content="https://ola-azure.vercel.app/api/frame" />
-  
-  <!-- Open Graph tags for better sharing -->
-  <meta property="og:title" content="Four in a Row - Connect 4 Game" />
-  <meta property="og:description" content="Play the classic Connect Four game. Challenge the AI or play with friends!" />
-  <meta property="og:image" content="https://ola-azure.vercel.app/hero.png" />
-  <meta property="og:url" content="https://ola-azure.vercel.app/" />
 
   <!-- Styles -->
   <link rel="stylesheet" href="style.css" />
@@ -207,30 +202,82 @@
   <!-- GAME LOGIC -->
   <script src="app.js"></script>
 
-  <!-- FIXED READY SIGNAL -->
+  <!-- FIXED MINIAPP SDK READY HANDLER -->
   <script>
-    let retries = 0;
-    function initMiniAppReady() {
-      if (window.MiniAppSdk && window.MiniAppSdk.actions) {
-        window.MiniAppSdk.actions.ready().then(() => {
-          console.log("Mini App ready!");
-        }).catch(err => console.warn("Ready error:", err));
-      } else if (retries < 6) {
-        retries++;
-        setTimeout(initMiniAppReady, 400);
+    // Enhanced MiniApp SDK ready handler
+    async function initializeMiniApp() {
+      console.log('Initializing MiniApp SDK...');
+      
+      // Wait for SDK to load with timeout
+      const maxRetries = 10;
+      const retryDelay = 500;
+      
+      for (let attempt = 1; attempt <= maxRetries; attempt++) {
+        if (window.MiniAppSdk && window.MiniAppSdk.actions) {
+          try {
+            console.log('SDK detected, calling ready()...');
+            
+            // Call ready() to dismiss splash screen
+            await window.MiniAppSdk.actions.ready();
+            console.log('✅ MiniApp SDK ready() successful - splash screen should dismiss');
+            
+            // Additional setup after ready
+            initializeApp();
+            return;
+            
+          } catch (error) {
+            console.warn('❌ MiniAppSdk.actions.ready() failed:', error);
+            // Continue with app initialization even if ready fails
+            break;
+          }
+        }
+        
+        console.log(`SDK not ready yet (attempt ${attempt}/${maxRetries}), waiting...`);
+        if (attempt < maxRetries) {
+          await new Promise(resolve => setTimeout(resolve, retryDelay));
+        }
       }
+      
+      // Fallback: Initialize app even if SDK fails
+      console.log('SDK not available, initializing app in fallback mode');
+      initializeApp();
     }
-    window.addEventListener("DOMContentLoaded", initMiniAppReady);
-  </script>
 
-  <!-- RESET LOCALSTORAGE BUTTON -->
-  <script>
-    document.addEventListener('DOMContentLoaded', () => {
-      document.getElementById("resetStatsBtn").onclick = () => {
-        localStorage.clear();
-        location.reload();
-      };
-    });
+    // Your app initialization function
+    function initializeApp() {
+      console.log('🚀 App initializing...');
+      
+      // Initialize your game logic here
+      if (typeof initGame === 'function') {
+        initGame();
+      }
+      
+      // Set up reset stats button
+      const resetStatsBtn = document.getElementById('resetStatsBtn');
+      if (resetStatsBtn) {
+        resetStatsBtn.onclick = () => {
+          localStorage.clear();
+          location.reload();
+        };
+      }
+      
+      console.log('✅ App initialization complete');
+    }
+
+    // Start initialization when DOM is ready
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', initializeMiniApp);
+    } else {
+      initializeMiniApp();
+    }
+
+    // Fallback timeout - ensure app loads even if everything else fails
+    setTimeout(() => {
+      console.log('⏰ Fallback timeout reached, forcing app initialization');
+      if (typeof initGame === 'function') {
+        initGame();
+      }
+    }, 3000);
   </script>
 
 </body>
