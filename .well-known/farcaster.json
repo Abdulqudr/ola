@@ -12,7 +12,7 @@
     "name": "CONNECT 4",
     "homeUrl": "https://ola-azure.vercel.app/",
     "iconUrl": "https://ola-azure.vercel.app/icon.png",
-    "imageUrl": "https://i.imgur.com/XFWrHQe.jpeg",
+    "imageUrl": "https://ola-azure.vercel.app/hero.png",
     "splashImageUrl": "https://i.imgur.com/XFWrHQe.jpeg",
     "splashBackgroundColor": "#486DB8",
     "subtitle": "The Ultimate Connect Challenge",
@@ -26,7 +26,7 @@
     "tagline": "Think. Block. Connect. Win.",
     "ogTitle": "FOUR IN A ROW",
     "ogDescription": "Think ahead, outsmart your opponent, and be the first to connect four pieces in any direction",
-    "ogImageUrl": "https://i.imgur.com/XFWrHQe.jpeg",
+    "ogImageUrl": "https://ola-azure.vercel.app/icon.png",
     "noindex": false
   }
 }
