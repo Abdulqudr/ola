@@ -1,8 +1,15 @@
 {
   "accountAssociation": {
-    "header": "",
-    "payload": "", 
-    "signature": ""
+    "header": "eyJmaWQiOjEwNTkzOTgsInR5cGUiOiJjdXN0b2R5Iiwia2V5IjoiMHhBQzgwQmVjNDYwOThkNDkwNzFhNjBmQUI3RDBjYTVFMDhEOUI3RjNlIn0",
+    "payload": "eyJkb21haW4iOiJvbGEtYXp1cmUudmVyY2VsLmFwcCJ9",
+    "signature": "4mXsqMcHkWza6SFykNMMNockmFdcrD4l1Se8hkMpDHZF+ylgMHOF8ri8RjTqCM0GKQ2BWhUWk8jKgYKkf3jOdhw="
+  },
+  "frame": {
+    "version": "vNext",
+    "image": "https://ola-azure.vercel.app/hero.png",
+    "imageAspectRatio": "1.91:1",
+    "homeUrl": "https://ola-azure.vercel.app/",
+    "buttonTitle": "Play Four in a Row"
   },
   "baseBuilder": {
     "ownerAddress": "0xe1Bd3D122995a3d3A253F564c1fD54d18407A657"
