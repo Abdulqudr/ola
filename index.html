@@ -1,40 +1,22 @@
 <!doctype html>
 <html lang="en">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>Four in a Row</title>
+  <link rel="stylesheet" href="style.css">
 
-  <!-- FRAME META TAGS -->
-  <meta property="fc:frame" content="vNext" />
-  <meta property="fc:frame:image" content="https://ola-azure.vercel.app/hero.png" />
-  <meta property="fc:frame:image:aspect_ratio" content="1.91:1" />
-  <meta property="fc:frame:button:1" content="🎮 Play Four in a Row" />
-  <meta property="fc:frame:post_url" content="https://ola-azure.vercel.app/api/frame" />
-
-  <!-- Open Graph tags -->
-  <meta property="og:title" content="Four in a Row - Connect 4 Game" />
-  <meta property="og:description" content="Play the classic Connect Four game. Challenge the AI!" />
-  <meta property="og:image" content="https://ola-azure.vercel.app/hero.png" />
-  <meta property="og:url" content="https://ola-azure.vercel.app/" />
-
-  <!-- Styles -->
-  <link rel="stylesheet" href="style.css" />
+  <!-- Base Mini App Meta Tags -->
+  <meta property="fc:miniapp" content="https://ola-azure.vercel.app/.well-known/farcaster.json">
+  <meta property="og:title" content="Four in a Row">
+  <meta property="og:description" content="Beat the AI · streaks · achievements · multiplayer">
+  <meta property="og:image" content="https://ola-azure.vercel.app/hero.png">
 
   <!-- Favicon -->
-  <link rel="icon" href="data:image/svg+xml;utf8,
-    <svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'>
-      <rect width='100' height='100' rx='12' fill='%23031226'/>
-      <circle cx='40' cy='50' r='18' fill='%23FF6B35'/>
-      <circle cx='60' cy='50' r='18' fill='%23FFD23F'/>
-    </svg>"
-  />
+  <link rel="icon" href="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='12' fill='%23031226'/><circle cx='40' cy='50' r='18' fill='%23FF6B35'/><circle cx='60' cy='50' r='18' fill='%23FFD23F'/></svg>">
 </head>
 <body>
-
-  <!-- APP WRAPPER -->
   <div class="app">
-
     <header class="topbar">
       <div class="player-info">
         <div class="player-avatar">
@@ -76,7 +58,9 @@
       
       <button id="newGameBtn" class="new-game-btn">NEW GAME</button>
       
-      <button id="statsBtn" class="icon-btn" aria-label="Statistics">📊</button>
+      <button id="statsBtn" class="icon-btn" aria-label="Statistics">
+        📊
+      </button>
       
       <button id="settingsBtn" class="icon-btn settings-icon" aria-label="Settings">
         <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
@@ -98,6 +82,16 @@
     <div id="settingsModal" class="modal hidden" aria-hidden="true">
       <div class="modal-content">
         <h2>Settings</h2>
+        
+        <div class="modal-section">
+          <label>Game Mode:
+            <select id="gameMode">
+              <option value="single">Single Player vs AI</option>
+              <option value="multiplayer">Multiplayer vs Friend</option>
+            </select>
+          </label>
+        </div>
+
         <div class="modal-section">
           <label>Difficulty:
             <select id="difficulty">
@@ -107,6 +101,7 @@
             </select>
           </label>
         </div>
+        
         <div class="modal-section">
           <label>Theme:
             <select id="themeSelect">
@@ -116,6 +111,7 @@
             </select>
           </label>
         </div>
+        
         <div class="modal-section">
           <label>Your Avatar:
             <select id="avatarSelect">
@@ -124,6 +120,7 @@
             </select>
           </label>
         </div>
+        
         <div class="modal-section">
           <label class="toggle-label">
             <span>Sound</span>
@@ -131,6 +128,7 @@
             <span class="toggle-slider"></span>
           </label>
         </div>
+        
         <div class="modal-actions">
           <button id="closeSettingsBtn" class="btn primary">Close</button>
         </div>
@@ -142,11 +140,29 @@
       <div class="modal-content">
         <h2>How to Play</h2>
         <div class="help-content">
-          <p><strong>Objective:</strong> Be the first to connect four discs horizontally, vertically, or diagonally.</p>
+          <p><strong>Objective:</strong> Be the first to connect four of your discs in a row horizontally, vertically, or diagonally.</p>
+          
+          <p><strong>Game Modes:</strong></p>
           <ul>
-            <li>🎮 Single Player vs AI</li>
-            <li>🎯 Multiple difficulty levels</li>
-            <li>🏆 Earn achievements and track stats</li>
+            <li>🎮 <strong>Single Player:</strong> Play against AI with 3 difficulty levels</li>
+            <li>👥 <strong>Multiplayer:</strong> Play against a friend on the same device</li>
+          </ul>
+          
+          <p><strong>Gameplay:</strong></p>
+          <ul>
+            <li>Tap on any column to drop your disc</li>
+            <li>Discs fall to the lowest available space in the column</li>
+            <li>Take turns with your opponent</li>
+            <li>First to get four in a row wins!</li>
+          </ul>
+          
+          <p><strong>Features:</strong></p>
+          <ul>
+            <li>🔥 Win streaks for consecutive wins</li>
+            <li>🏆 22+ achievements across 4 difficulty tiers</li>
+            <li>📊 Track your statistics and progress</li>
+            <li>🎨 Multiple themes and avatars</li>
+            <li>👥 Single Player & Multiplayer modes</li>
           </ul>
         </div>
         <div class="modal-actions">
@@ -177,147 +193,84 @@
             <div class="stat-label">Best Streak</div>
           </div>
         </div>
-
+        
         <h3 style="margin-top: 24px;">Achievements</h3>
-        <div class="achievement-list" id="achievementList"></div>
-
+        <div class="achievement-list" id="achievementList">
+          <!-- Achievements will be populated by JavaScript -->
+        </div>
+        
         <div class="modal-actions">
           <button id="closeStatsBtn" class="btn primary">Close</button>
-          <button id="resetStatsBtn" class="btn primary" style="background: #f44336; margin-left: 8px;">Reset Stats</button>
         </div>
       </div>
     </div>
 
+    <!-- Multiplayer Modal -->
+    <div id="multiplayerModal" class="modal hidden" aria-hidden="true">
+      <div class="modal-content">
+        <h2>Multiplayer Game</h2>
+        <div class="multiplayer-content">
+          <p>Play against a friend on the same device!</p>
+          <div class="player-setup">
+            <div class="player-setup-item">
+              <label>Player 1 Name:</label>
+              <input type="text" id="player1Name" value="Player 1" maxlength="12">
+            </div>
+            <div class="player-setup-item">
+              <label>Player 2 Name:</label>
+              <input type="text" id="player2Name" value="Player 2" maxlength="12">
+            </div>
+          </div>
+          <div class="modal-actions">
+            <button id="startMultiplayerBtn" class="btn primary">Start Game</button>
+            <button id="cancelMultiplayerBtn" class="btn">Cancel</button>
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
 
-  <!-- AUDIO -->
+  <!-- Audio -->
   <audio id="sfxPlace" src="sounds/drop.mp3" preload="auto"></audio>
   <audio id="sfxWin" src="sounds/win.mp3" preload="auto"></audio>
 
-  <!-- GAME LOGIC -->
+  <!-- Load SDK (non-async to ensure it's ready fast) -->
+  <script src="https://cdn.jsdelivr.net/npm/@farcaster/miniapp-sdk@0.2.3/dist/sdk.js"></script>
+
+  <!-- Your Game Script -->
   <script src="app.js"></script>
 
-  <!-- GUARANTEED MINIAPP SDK FIX -->
+  <!-- FIXED READY SIGNAL (with retries to kill splash screen) -->
   <script>
-    // GUARANTEED SOLUTION FOR SPLASH SCREEN
-    console.log('🚀 Starting Farcaster MiniApp initialization...');
-    
-    // Method 1: Direct SDK initialization
-    function initializeMiniAppSDK() {
-      if (window.MiniAppSdk && window.MiniAppSdk.actions) {
-        console.log('✅ SDK found, calling ready()...');
+    let retryCount = 0;
+    function sendReady() {
+      if (window.MiniAppSdk && window.MiniAppSdk.actions && window.MiniAppSdk.actions.ready) {
         window.MiniAppSdk.actions.ready().then(() => {
-          console.log('🎉 SUCCESS: Splash screen should be dismissed!');
-        }).catch(error => {
-          console.warn('⚠️ SDK ready() failed:', error);
-          // Try alternative method
-          initializeAlternative();
-        });
-      } else {
-        console.log('🔍 SDK not available, trying alternative...');
-        initializeAlternative();
+          console.log('✅ Ready signal sent - splash dismissed!');
+        }).catch(e => console.log('Ready error:', e));
+        return true;
       }
+      return false;
     }
-    
-    // Method 2: Alternative initialization
-    function initializeAlternative() {
-      console.log('🔄 Trying alternative initialization...');
-      // Sometimes the SDK needs to be accessed differently
-      setTimeout(() => {
-        if (window.farcaster && window.farcaster.miniApp) {
-          console.log('✅ Alternative SDK found');
-          window.farcaster.miniApp.ready();
-        } else if (window.parent && window.parent.MiniAppSdk) {
-          console.log('✅ Parent SDK found');
-          window.parent.MiniAppSdk.actions.ready();
-        } else {
-          console.log('❌ No SDK found, continuing without it');
-        }
-      }, 1000);
-    }
-    
-    // Method 3: Force game initialization
-    function initializeGame() {
-      console.log('🎮 Initializing game...');
-      try {
-        // Try the initGame function from app.js
-        if (typeof window.initGame === 'function') {
-          window.initGame();
-          console.log('✅ Game initialized via initGame()');
-        } else {
-          // Fallback initialization
-          console.log('🔄 Using fallback initialization');
-          if (typeof loadGameStats === 'function') loadGameStats();
-          if (typeof loadSettings === 'function') loadSettings();
-          if (typeof startNewGame === 'function') startNewGame();
-          if (typeof updateAvatars === 'function') updateAvatars();
-          if (typeof updateStreakDisplay === 'function') updateStreakDisplay();
-        }
-        
-        // Setup reset stats button
-        const resetBtn = document.getElementById('resetStatsBtn');
-        if (resetBtn) {
-          resetBtn.onclick = () => {
-            localStorage.clear();
-            location.reload();
-          };
-        }
-        
-        console.log('✅ Game fully loaded and ready!');
-      } catch (error) {
-        console.error('❌ Game initialization error:', error);
-      }
-    }
-    
-    // MAIN INITIALIZATION SEQUENCE
-    function startApp() {
-      console.log('🔧 Starting app sequence...');
-      
-      // Step 1: Initialize MiniApp SDK (don't wait for it)
-      initializeMiniAppSDK();
-      
-      // Step 2: Initialize game immediately
-      initializeGame();
-      
-      // Step 3: Multiple retries for SDK
-      let retryCount = 0;
-      const maxRetries = 10;
-      
-      const retrySDK = setInterval(() => {
-        if (window.MiniAppSdk && window.MiniAppSdk.actions && retryCount < maxRetries) {
-          console.log(`🔄 Retry ${retryCount + 1}: Calling ready()...`);
-          window.MiniAppSdk.actions.ready().then(() => {
-            console.log('🎉 SDK ready() successful on retry!');
-            clearInterval(retrySDK);
-          }).catch(() => {
-            retryCount++;
-            if (retryCount >= maxRetries) {
-              console.log('💥 Max retries reached, continuing without SDK');
-              clearInterval(retrySDK);
-            }
-          });
-        } else if (retryCount >= maxRetries) {
-          clearInterval(retrySDK);
-        }
-      }, 500);
-    }
-    
-    // START EVERYTHING
-    if (document.readyState === 'loading') {
-      document.addEventListener('DOMContentLoaded', startApp);
-    } else {
-      startApp();
-    }
-    
-    // ULTIMATE FALLBACK - Force remove splash after 3 seconds
-    setTimeout(() => {
-      console.log('🛡️ Ultimate fallback: Forcing continuation');
-      // Try one final SDK call
-      if (window.MiniAppSdk && window.MiniAppSdk.actions) {
-        window.MiniAppSdk.actions.ready().catch(() => {});
-      }
-    }, 3000);
-  </script>
 
+    function attemptReady() {
+      if (sendReady()) return;
+      if (retryCount < 10) {
+        retryCount++;
+        console.log(`Retry ${retryCount}/10 for SDK...`);
+        setTimeout(attemptReady, 200);
+      } else {
+        console.log('Max retries - check SDK load');
+      }
+    }
+
+    // Fire on DOM ready and page load
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', attemptReady);
+    } else {
+      attemptReady();
+    }
+    window.addEventListener('load', attemptReady);
+  </script>
 </body>
 </html>
