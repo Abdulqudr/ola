@@ -1163,7 +1163,7 @@ window.addEventListener('resize', ()=>{
 
 // expose for debugging
 window.__connect4 = {board, startNewGame, achievements, winStreak};
-// ADD THIS TO THE VERY END OF app.js
+// ADD THIS TO THE END OF YOUR app.js
 function initGame() {
     console.log('🎮 Connect 4 MiniApp initializing...');
     
@@ -1182,11 +1182,5 @@ function initGame() {
     }
 }
 
+// Make it available globally
 window.initGame = initGame;
-
-// Auto-initialize if not in Farcaster
-if (typeof window.MiniAppSdk === 'undefined') {
-    document.addEventListener('DOMContentLoaded', function() {
-        setTimeout(initGame, 100);
-    });
-}
