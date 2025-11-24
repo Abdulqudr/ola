@@ -83,28 +83,31 @@
     <div id="multiplayerModal" class="modal hidden" aria-hidden="true"> ... </div>
   </div>
 
-  <!-- Audio -->
+   <!-- Audio elements -->
   <audio id="sfxPlace" src="sounds/drop.mp3" preload="auto"></audio>
   <audio id="sfxWin" src="sounds/win.mp3" preload="auto"></audio>
 
-  <!-- YOUR ORIGINAL app.js — works perfectly -->
+  <!-- Load Mini App SDK FIRST (this makes window.MiniAppSdk available) -->
+  <script async src="https://cdn.jsdelivr.net/npm/@farcaster/miniapp-sdk@0.2.3/dist/sdk.js"></script>
+
+  <!-- Your game script (unchanged) -->
   <script src="app.js"></script>
 
-  <!-- BASE MINI APP: Tell Base "I'm ready!" (this removes the splash screen) -->
+  <!-- READY SIGNAL: This tells Base "App loaded, hide splash!" -->
   <script>
-    if (window.MiniAppSdk) {
-      window.addEventListener('load', async () => {
-        try {
-          await window.MiniAppSdk.actions.ready();
-          console.log('Four in a Row Mini App ready on Base!');
-        } catch (e) {
-          console.log('Not inside Base App (normal on desktop)');
-        }
-      });
-    }
+    // Wait for everything to load, then fire ready()
+    window.addEventListener('load', function() {
+      if (window.MiniAppSdk && window.MiniAppSdk.actions) {
+        window.MiniAppSdk.actions.ready().then(() => {
+          console.log('Mini App ready! Game should now show.');
+        }).catch((error) => {
+          console.log('Ready signal failed (might not be in Base):', error);
+        });
+      } else {
+        console.log('SDK not loaded yet—retrying in 1s...');
+        setTimeout(arguments.callee, 1000);  // Retry if SDK is slow
+      }
+    });
   </script>
-
-  <!-- Load the Mini App SDK (classic way — works with your current app.js) -->
-  <script async src="https://cdn.jsdelivr.net/npm/@farcaster/miniapp-sdk@0.2.3/dist/sdk.js"></script>
 </body>
 </html>
