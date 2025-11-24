@@ -11,7 +11,7 @@
     "version": "1",
     "name": "CONNECT 4",
     "homeUrl": "https://ola-azure.vercel.app/",
-    "iconUrl": "https://i.imgur.com/XFWrHQe.jpeg",
+    "iconUrl": "https://ola-azure.vercel.app/icon.png",
     "imageUrl": "https://i.imgur.com/XFWrHQe.jpeg",
     "splashImageUrl": "https://i.imgur.com/XFWrHQe.jpeg",
     "splashBackgroundColor": "#486DB8",
