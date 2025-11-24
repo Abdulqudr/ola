@@ -9,18 +9,24 @@
   <!-- Mini App Discovery -->
   <meta property="fc:miniapp" content="https://ola-azure.vercel.app/.well-known/farcaster.json">
 
-  <!-- PERFECT EMBED CARD (Farcaster / Base / Warpcast) -->
-  <meta property="fc:frame" content="vNext">
-  <meta property="fc:frame:image" content="https://ola-azure.vercel.app/hero.png">
-  <meta property="fc:frame:image:aspect_ratio" content="1.91:1">
-  <meta property="fc:frame:button:1" content="Play Connect Four">
-  <meta property="fc:frame:button:1:action" content="link">
-  <meta property="fc:frame:button:1:target" content="https://ola-azure.vercel.app">
+  <!-- PERFECT EMBED CARD (exact format from docs/friend example) -->
+  <meta name="fc:miniapp" content='{
+    "version": "next",
+    "imageUrl": "https://ola-azure.vercel.app/hero.png",
+    "button": {
+      "title": "Play Connect Four",
+      "action": {
+        "type": "launch_miniapp",
+        "name": "Four in a Row",
+        "url": "https://ola-azure.vercel.app"
+      }
+    }
+  }' />
 
-  <!-- Fallback Open Graph (uses Imgur if hero.png missing) -->
+  <!-- Fallback Open Graph (for Twitter/Discord) -->
   <meta property="og:title" content="Four in a Row">
   <meta property="og:description" content="Beat the AI · streaks · achievements · multiplayer">
-  <meta property="og:image" content="https://i.imgur.com/XFWrHQe.jpeg">
+  <meta property="og:image" content="https://ola-azure.vercel.app/hero.png">
 </head>
 <body>
   <div class="app">
@@ -241,7 +247,10 @@
   <audio id="sfxPlace" src="sounds/drop.mp3" preload="auto"></audio>
   <audio id="sfxWin" src="sounds/win.mp3" preload="auto"></audio>
 
-  <!-- OFFICIAL ESM SDK + READY CALL (runs first, no timing issues) -->
+  <!-- Your game logic (regular script) -->
+  <script src="app.js"></script>
+
+  <!-- OFFICIAL ESM SDK + READY CALL (fixes splash) -->
   <script type="module">
     import { sdk } from 'https://esm.sh/@farcaster/miniapp-sdk';
 
@@ -251,16 +260,15 @@
       localStorage.setItem('connect4_visited', 'true');
     }
 
-    // Dismiss splash screen immediately
-    try {
-      await sdk.actions.ready();
-      console.log('Mini App ready — splash gone!');
-    } catch (e) {
-      console.log('Not in Mini App (desktop mode)');
-    }
+    // Dismiss splash screen after app loads
+    window.addEventListener('load', async () => {
+      try {
+        await sdk.actions.ready();
+        console.log('Mini App ready — splash dismissed!');
+      } catch (e) {
+        console.log('Not in Mini App (desktop mode)');
+      }
+    });
   </script>
-
-  <!-- Your game logic (loads last, after DOM + SDK) -->
-  <script src="app.js"></script>
 </body>
 </html>
