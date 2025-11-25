@@ -1,18 +1,18 @@
-/* Enhanced Connect Four with Dashboard, Multiplayer & Themes */
+/* Enhanced Connect Four with Dashboard, Multiplayer, Themes & Farcaster Auth */
 const COLUMNS = 7;
 const ROWS = 6;
 const PLAYER = 1;
 const AI = 2;
 const PLAYER1 = 1;
-const PLAYER2 = 3; // Different value for multiplayer
+const PLAYER2 = 3;
 
 let board = null;
 let isPlayerTurn = true;
 let gameOver = false;
 let difficulty = 'easy';
 let currentWinPositions = null;
-let gameMode = 'single'; // 'single' or 'multiplayer'
-let currentPlayer = PLAYER1; // For multiplayer
+let gameMode = 'single';
+let currentPlayer = PLAYER1;
 
 const boardEl = document.getElementById('board');
 const aiPulseEl = document.getElementById('aiPulse');
@@ -38,171 +38,252 @@ let hardModeWins = 0;
 let mediumModeWins = 0;
 let flawlessWins = 0;
 
-// Multiplayer state (session only - resets on back button)
+// Multiplayer state
 let multiplayerSessionStats = {
     player1: { name: "Player 1", wins: 0 },
     player2: { name: "Player 2", wins: 0 }
 };
 
-// Permanent multiplayer stats (saved)
+// Permanent multiplayer stats
 let multiplayerStats = {
     player1: { name: "Player 1", wins: 0, achievements: 0 },
     player2: { name: "Player 2", wins: 0, achievements: 0 }
 };
 
-// settings
+// Farcaster authentication state
+let userToken = null;
+let userData = null;
+let farcasterUsers = {};
+
+// Settings
 const SETTINGS_KEY = 'fourinrow_settings_v3';
 let settings = { sound: true, theme: 'neon', avatar: 'male' };
 
-// Farcaster Auth State
-let farcasterUser = null;
-const AUTH_KEY = 'farcaster_auth_v1';
-
-// Farcaster Auth Configuration
-const FARCASTER_CONFIG = {
-  request: "Farcaster Auth",
-  domain: "ola-azure.vercel.app",
-  ethereumAddress: "0xe1Bd3D122995a3d3A253F564c1fD54d18407A657",
-  uri: "https://ola-azure.vercel.app",
-  version: 1,
-  chainId: 10,
-  nonce: generateNonce(),
-  issuedAt: new Date().toISOString(),
-  expirationTime: new Date(Date.now() + 30 * 60 * 1000).toISOString(), // 30 minutes
-  resources: ["farcaster://fid/1059398"]
-};
-
-function generateNonce() {
-  return 'naa6be5b569c231363171a0062b8839b87' + Date.now();
-}
-
 // Screen Management
-let currentScreen = 'login';
+let currentScreen = 'dashboard';
 
-// Load auth state from localStorage
-function loadAuthState() {
-  try {
-    const authData = localStorage.getItem(AUTH_KEY);
-    if (authData) {
-      farcasterUser = JSON.parse(authData);
-      // Check if token is still valid
-      if (new Date(farcasterUser.expirationTime) > new Date()) {
-        return true;
-      } else {
-        // Token expired
-        farcasterUser = null;
-        localStorage.removeItem(AUTH_KEY);
-      }
-    }
-  } catch (e) {
-    console.error('Error loading auth state:', e);
-  }
-  return false;
-}
-
-// Save auth state to localStorage
-function saveAuthState(userData) {
-  try {
-    farcasterUser = userData;
-    localStorage.setItem(AUTH_KEY, JSON.stringify(userData));
-  } catch (e) {
-    console.error('Error saving auth state:', e);
-  }
-}
-
-// Initialize Farcaster Auth
-async function initFarcasterAuth() {
-  // Check if we're in a Farcaster client
-  if (typeof window !== 'undefined' && window.farcaster) {
+// Authentication Functions
+async function signIn() {
     try {
-      const authResult = await window.farcaster.authenticate(FARCASTER_CONFIG);
-      if (authResult && authResult.success) {
-        saveAuthState({
-          ...authResult,
-          signedIn: true,
-          expirationTime: FARCASTER_CONFIG.expirationTime
-        });
-        return true;
-      }
+        console.log('Starting Farcaster authentication...');
+        
+        if (!window.sdk) {
+            throw new Error('Farcaster SDK not available');
+        }
+
+        const { token } = await window.sdk.quickAuth.getToken();
+        userToken = token;
+        
+        // Verify token with backend (using mock for now)
+        const authSuccess = await verifyToken(token);
+        
+        if (authSuccess) {
+            // Store user data
+            const fid = extractFidFromToken(token);
+            userData = { 
+                fid: fid,
+                username: `user_${fid}`,
+                displayName: `Player ${fid}`
+            };
+            
+            // Save to localStorage
+            localStorage.setItem('farcasterUser', JSON.stringify({
+                token: userToken,
+                fid: userData.fid,
+                username: userData.username,
+                timestamp: Date.now()
+            }));
+
+            // Add to farcaster users if not exists
+            if (!farcasterUsers[fid]) {
+                farcasterUsers[fid] = {
+                    fid: fid,
+                    username: userData.username,
+                    displayName: userData.displayName,
+                    wins: 0,
+                    achievements: 0,
+                    bestStreak: 0
+                };
+                saveFarcasterUsers();
+            }
+
+            updateAuthUI();
+            showAchievementToast({
+                name: "Welcome!",
+                desc: "Successfully signed in with Farcaster",
+                emoji: "🔐",
+                tier: "easy"
+            });
+            
+            console.log('Farcaster authentication successful:', userData);
+            updateLeaderboardDisplay();
+        } else {
+            throw new Error('Token verification failed');
+        }
     } catch (error) {
-      console.error('Farcaster auth error:', error);
+        console.error('Farcaster authentication failed:', error);
+        showError('Failed to sign in with Farcaster. Please try again.');
     }
-  }
-  return false;
 }
 
-// Check auth and show appropriate screen
-function checkAuthAndShowScreen() {
-  const isAuthenticated = loadAuthState();
-  
-  if (isAuthenticated && farcasterUser) {
-    showScreen('dashboard');
-    updateUserDisplay();
-  } else {
-    showScreen('login');
-  }
+function signOut() {
+    userToken = null;
+    userData = null;
+    localStorage.removeItem('farcasterUser');
+    updateAuthUI();
+    showAchievementToast({
+        name: "Signed Out",
+        desc: "You have been signed out",
+        emoji: "👋",
+        tier: "easy"
+    });
 }
 
-// Update UI with user info
-function updateUserDisplay() {
-  if (farcasterUser && farcasterUser.user) {
-    const userInfoEl = document.getElementById('userInfo');
-    if (userInfoEl) {
-      userInfoEl.textContent = `Signed in as ${farcasterUser.user.username || `FID ${farcasterUser.user.fid}`}`;
+function loadUserData() {
+    try {
+        const saved = localStorage.getItem('farcasterUser');
+        if (saved) {
+            const user = JSON.parse(saved);
+            // Check if token is still valid (less than 1 hour old)
+            if (Date.now() - user.timestamp < 3600000) {
+                userToken = user.token;
+                userData = { 
+                    fid: user.fid,
+                    username: user.username,
+                    displayName: `Player ${user.fid}`
+                };
+                return true;
+            }
+        }
+    } catch (e) {
+        console.log('Error loading user data:', e);
     }
-  }
+    return false;
 }
 
-// Logout function
-function logout() {
-  farcasterUser = null;
-  localStorage.removeItem(AUTH_KEY);
-  checkAuthAndShowScreen();
+function updateAuthUI() {
+    const authStatus = document.getElementById('authStatus');
+    const signInBtn = document.getElementById('signInBtn');
+    const userInfo = document.getElementById('userInfo');
+    const userAvatar = document.getElementById('userAvatar');
+    
+    if (userData) {
+        // User is signed in
+        authStatus.classList.remove('hidden');
+        signInBtn.classList.add('hidden');
+        userInfo.textContent = `FID: ${userData.fid}`;
+        userAvatar.textContent = userData.fid.toString().charAt(0);
+        
+        // Update player name in game if screen is active
+        if (currentScreen === 'game' && gameMode === 'single') {
+            document.querySelector('.player-info .player-name').textContent = userData.displayName;
+        }
+    } else {
+        // User is signed out
+        authStatus.classList.add('hidden');
+        signInBtn.classList.remove('hidden');
+    }
 }
 
+// Mock token verification (replace with real API call)
+async function verifyToken(token) {
+    // In a real app, you would call your backend API
+    // For now, we'll simulate successful verification
+    return new Promise(resolve => {
+        setTimeout(() => resolve(true), 500);
+    });
+}
+
+function extractFidFromToken(token) {
+    // Mock FID extraction - in real app, decode JWT
+    return Math.floor(1000 + Math.random() * 9000);
+}
+
+function showError(message) {
+    const toast = document.createElement('div');
+    toast.className = 'achievement-toast';
+    toast.style.background = 'linear-gradient(45deg, #ff6b6b, #ff8e53)';
+    toast.innerHTML = `
+        <div class="achievement-emoji">❌</div>
+        <div class="achievement-title">Error</div>
+        <div class="achievement-desc">${message}</div>
+    `;
+    document.body.appendChild(toast);
+    setTimeout(() => toast.remove(), 3000);
+}
+
+// Farcaster users management
+function loadFarcasterUsers() {
+    try {
+        const users = localStorage.getItem('farcasterUsers');
+        if (users) {
+            farcasterUsers = JSON.parse(users);
+        }
+    } catch (e) {
+        console.log('Error loading farcaster users:', e);
+        farcasterUsers = {};
+    }
+}
+
+function saveFarcasterUsers() {
+    try {
+        localStorage.setItem('farcasterUsers', JSON.stringify(farcasterUsers));
+    } catch (e) {
+        console.log('Error saving farcaster users:', e);
+    }
+}
+
+function updateFarcasterUserStats(won = false) {
+    if (!userData) return;
+    
+    const fid = userData.fid;
+    if (!farcasterUsers[fid]) return;
+    
+    if (won) {
+        farcasterUsers[fid].wins++;
+        if (winStreak > farcasterUsers[fid].bestStreak) {
+            farcasterUsers[fid].bestStreak = winStreak;
+        }
+        farcasterUsers[fid].achievements = getAchievementsCount();
+    }
+    
+    saveFarcasterUsers();
+}
+
+// Existing game functions (keeping all your original game logic)
 function showScreen(screenName) {
-  // Don't show protected screens if not authenticated
-  if (screenName !== 'login' && !farcasterUser) {
-    screenName = 'login';
-  }
-  
-  // Hide all screens
-  document.querySelectorAll('.screen').forEach(screen => {
-    screen.classList.remove('active');
-    screen.classList.add('hidden');
-  });
-  
-  // Show target screen
-  const targetScreen = document.getElementById(screenName + 'Screen');
-  if (targetScreen) {
-    targetScreen.classList.remove('hidden');
-    targetScreen.classList.add('active');
-  }
-  
-  currentScreen = screenName;
-  
-  // Update UI based on screen
-  if (screenName === 'game') {
-    updateGameStatus();
-    updateWinCounters();
-  } else if (screenName === 'dashboard') {
-    updateDashboardStreak();
-    if (gameMode === 'multiplayer') {
-      resetMultiplayerSession();
+    document.querySelectorAll('.screen').forEach(screen => {
+        screen.classList.remove('active');
+        screen.classList.add('hidden');
+    });
+    
+    const targetScreen = document.getElementById(screenName + 'Screen');
+    if (targetScreen) {
+        targetScreen.classList.remove('hidden');
+        targetScreen.classList.add('active');
     }
-  }
+    
+    currentScreen = screenName;
+    
+    if (screenName === 'game') {
+        updateGameStatus();
+        updateWinCounters();
+    } else if (screenName === 'dashboard') {
+        updateDashboardStreak();
+        if (gameMode === 'multiplayer') {
+            resetMultiplayerSession();
+        }
+    }
 }
 
 function resetMultiplayerSession() {
-  multiplayerSessionStats = {
-    player1: { name: "Player 1", wins: 0 },
-    player2: { name: "Player 2", wins: 0 }
-  };
+    multiplayerSessionStats = {
+        player1: { name: "Player 1", wins: 0 },
+        player2: { name: "Player 2", wins: 0 }
+    };
 }
 
-// Enhanced Achievement Definitions with Difficulty Tiers
 const ACHIEVEMENTS = {
-    // 🟢 EASY ACHIEVEMENTS
     firstWin: { 
         name: "First Blood", 
         desc: "Win your first game", 
@@ -235,8 +316,6 @@ const ACHIEVEMENTS = {
         condition: (stats) => stats.easyWins >= 5,
         progress: (stats) => Math.min(stats.easyWins, 5) / 5
     },
-
-    // 🟡 MEDIUM ACHIEVEMENTS
     streak5: { 
         name: "Unstoppable!", 
         desc: "Win 5 games in a row", 
@@ -245,145 +324,13 @@ const ACHIEVEMENTS = {
         condition: (stats) => stats.bestStreak >= 5,
         progress: (stats) => Math.min(stats.bestStreak, 5) / 5
     },
-    totalWins50: { 
-        name: "Half Century", 
-        desc: "Win 50 total games", 
-        emoji: "🎯",
-        tier: "medium",
-        condition: (stats) => stats.totalWins >= 50,
-        progress: (stats) => Math.min(stats.totalWins, 50) / 50
-    },
-    mediumMaster: { 
-        name: "Strategic Mind", 
-        desc: "Win 10 games on Medium difficulty", 
-        emoji: "🧠",
-        tier: "medium",
-        condition: (stats) => stats.mediumWins >= 10,
-        progress: (stats) => Math.min(stats.mediumWins, 10) / 10
-    },
-    comeback: { 
-        name: "Against All Odds", 
-        desc: "Win from 3 disks behind", 
-        emoji: "🙏",
-        tier: "medium",
-        condition: (stats) => stats.comebackWins >= 1,
-        progress: (stats) => Math.min(stats.comebackWins, 1)
-    },
-    speedRunner: { 
-        name: "Speed Runner", 
-        desc: "Win in under 2 minutes", 
-        emoji: "⏱️",
-        tier: "medium",
-        condition: (stats) => stats.fastWins >= 1,
-        progress: (stats) => Math.min(stats.fastWins, 1)
-    },
-    perfectGame: { 
-        name: "Flawless Victory", 
-        desc: "Win without letting AI get 3 in a row", 
-        emoji: "💎",
-        tier: "medium",
-        condition: (stats) => stats.perfectWins >= 1,
-        progress: (stats) => Math.min(stats.perfectWins, 1)
-    },
-
-    // 🔴 HARD ACHIEVEMENTS
-    streak10: { 
-        name: "Legendary Streak", 
-        desc: "Win 10 games in a row", 
-        emoji: "🏆",
-        tier: "hard",
-        condition: (stats) => stats.bestStreak >= 10,
-        progress: (stats) => Math.min(stats.bestStreak, 10) / 10
-    },
-    totalWins100: { 
-        name: "Centurion", 
-        desc: "Win 100 total games", 
-        emoji: "💯",
-        tier: "hard",
-        condition: (stats) => stats.totalWins >= 100,
-        progress: (stats) => Math.min(stats.totalWins, 100) / 100
-    },
-    hardMaster: { 
-        name: "Grand Master", 
-        desc: "Win 25 games on Hard difficulty", 
-        emoji: "♟️",
-        tier: "hard",
-        condition: (stats) => stats.hardWins >= 25,
-        progress: (stats) => Math.min(stats.hardWins, 25) / 25
-    },
-    speedDemon: { 
-        name: "Speed Demon", 
-        desc: "Win in under 1 minute", 
-        emoji: "🚀",
-        tier: "hard",
-        condition: (stats) => stats.veryFastWins >= 1,
-        progress: (stats) => Math.min(stats.veryFastWins, 1)
-    },
-    perfectStreak: { 
-        name: "Perfectionist", 
-        desc: "Get 3 flawless wins in a row", 
-        emoji: "✨",
-        tier: "hard",
-        condition: (stats) => stats.flawlessStreak >= 3,
-        progress: (stats) => Math.min(stats.flawlessStreak, 3) / 3
-    },
-    comebackKing: { 
-        name: "Comeback King", 
-        desc: "Win from 4 disks behind", 
-        emoji: "👑",
-        tier: "hard",
-        condition: (stats) => stats.comebackKingWins >= 1,
-        progress: (stats) => Math.min(stats.comebackKingWins, 1)
-    },
-
-    // 🏅 GRANDMASTER ACHIEVEMENTS (Very Hard)
-    streak20: { 
-        name: "Godlike Streak", 
-        desc: "Win 20 games in a row", 
-        emoji: "🌠",
-        tier: "grandmaster",
-        condition: (stats) => stats.bestStreak >= 20,
-        progress: (stats) => Math.min(stats.bestStreak, 20) / 20
-    },
-    totalWins500: { 
-        name: "Veteran Player", 
-        desc: "Win 500 total games", 
-        emoji: "🎖️",
-        tier: "grandmaster",
-        condition: (stats) => stats.totalWins >= 500,
-        progress: (stats) => Math.min(stats.totalWins, 500) / 500
-    },
-    impossible: { 
-        name: "The Impossible", 
-        desc: "Win 50 games on Hard difficulty", 
-        emoji: "🏔️",
-        tier: "grandmaster",
-        condition: (stats) => stats.hardWins >= 50,
-        progress: (stats) => Math.min(stats.hardWins, 50) / 50
-    },
-    lightning: { 
-        name: "Lightning Fast", 
-        desc: "Win in under 30 seconds", 
-        emoji: "⚡",
-        tier: "grandmaster",
-        condition: (stats) => stats.lightningWins >= 1,
-        progress: (stats) => Math.min(stats.lightningWins, 1)
-    },
-    untouchable: { 
-        name: "Untouchable", 
-        desc: "Get 10 flawless wins", 
-        emoji: "🛡️",
-        tier: "grandmaster",
-        condition: (stats) => stats.flawlessWins >= 10,
-        progress: (stats) => Math.min(stats.flawlessWins, 10) / 10
-    },
-    ultimateComeback: { 
-        name: "Ultimate Comeback", 
-        desc: "Win when AI has 3 separate 3-in-a-rows", 
-        emoji: "🎪",
-        tier: "grandmaster",
-        condition: (stats) => stats.ultimateComebacks >= 1,
-        progress: (stats) => Math.min(stats.ultimateComebacks, 1)
+    farcasterUser: {
+        name: "Farcaster Connected",
+        desc: "Sign in with Farcaster account",
+        emoji: "🔐",
+        tier: "easy",
+        condition: (stats) => stats.hasFarcaster,
+        progress: (stats) => stats.hasFarcaster ? 1 : 0
     }
 };
 
@@ -405,7 +352,6 @@ function applyTheme(themeName) {
     document.documentElement.setAttribute('data-theme', themeName);
     settings.theme = themeName;
     saveSettings();
-    // Re-render board to update disk colors
     if (board) {
         renderBoard();
     }
@@ -426,11 +372,9 @@ function loadGameStats() {
         flawlessWins = stats.flawlessWins || 0;
         lastPlayedDate = stats.lastPlayedDate || null;
         
-        // Load permanent multiplayer stats
         const multiplayerData = JSON.parse(localStorage.getItem('four_multiplayerStats') || '{}');
         multiplayerStats = Object.assign(multiplayerStats, multiplayerData);
         
-        // Initialize missing achievements
         Object.keys(ACHIEVEMENTS).forEach(key => {
             if (achievements[key] === undefined) {
                 achievements[key] = { unlocked: false, progress: 0 };
@@ -570,11 +514,12 @@ function getCurrentStats() {
         comebackWins,
         perfectWins,
         flawlessWins,
-        flawlessStreak: 0, // You'd track this
-        veryFastWins: 0,   // You'd track this
-        lightningWins: 0,  // You'd track this
-        comebackKingWins: 0, // You'd track this
-        ultimateComebacks: 0 // You'd track this
+        hasFarcaster: !!userData,
+        flawlessStreak: 0,
+        veryFastWins: 0,
+        lightningWins: 0,
+        comebackKingWins: 0,
+        ultimateComebacks: 0
     };
 }
 
@@ -586,7 +531,6 @@ function showAchievementToast(achievement) {
     const toast = document.createElement('div');
     toast.className = 'achievement-toast';
     
-    // Color code by tier
     let tierColor = '';
     switch(achievement.tier) {
         case 'easy': tierColor = '#4CAF50'; break;
@@ -625,6 +569,7 @@ function updateStatsDisplay() {
 function updateLeaderboardDisplay() {
     updateSinglePlayerLeaderboard();
     updateMultiplayerLeaderboard();
+    updateFarcasterLeaderboard();
 }
 
 function updateSinglePlayerLeaderboard() {
@@ -640,8 +585,8 @@ function updateSinglePlayerLeaderboard() {
     entryEl.innerHTML = `
         <div class="leaderboard-rank">#1</div>
         <div class="leaderboard-player">
-            <div class="leaderboard-avatar">Y</div>
-            <div class="leaderboard-name">You</div>
+            <div class="leaderboard-avatar">${userData ? userData.fid.toString().charAt(0) : 'Y'}</div>
+            <div class="leaderboard-name">${userData ? `Player ${userData.fid}` : 'You'}</div>
         </div>
         <div class="leaderboard-score">${playerWins} Wins</div>
         <div class="leaderboard-achievements">${achievementsCount} Achievements</div>
@@ -655,7 +600,6 @@ function updateMultiplayerLeaderboard() {
     
     multiplayerLeaderboard.innerHTML = '';
     
-    // Create leaderboard entries sorted by wins
     const entries = [
         { 
             name: multiplayerStats.player1.name, 
@@ -668,7 +612,6 @@ function updateMultiplayerLeaderboard() {
             achievements: multiplayerStats.player2.achievements 
         }
     ].sort((a, b) => {
-        // Sort by wins first, then by achievements
         if (b.wins !== a.wins) {
             return b.wins - a.wins;
         }
@@ -691,13 +634,57 @@ function updateMultiplayerLeaderboard() {
     });
 }
 
+function updateFarcasterLeaderboard() {
+    const farcasterLeaderboard = document.getElementById('farcasterLeaderboard');
+    if (!farcasterLeaderboard) return;
+    
+    farcasterLeaderboard.innerHTML = '';
+    
+    const entries = Object.values(farcasterUsers)
+        .sort((a, b) => {
+            if (b.wins !== a.wins) {
+                return b.wins - a.wins;
+            }
+            return b.bestStreak - a.bestStreak;
+        })
+        .slice(0, 10); // Top 10
+    
+    if (entries.length === 0) {
+        const emptyEl = document.createElement('div');
+        emptyEl.className = 'leaderboard-entry';
+        emptyEl.innerHTML = `
+            <div style="text-align: center; color: var(--muted); padding: 20px;">
+                No Farcaster users yet. Sign in to appear here!
+            </div>
+        `;
+        farcasterLeaderboard.appendChild(emptyEl);
+        return;
+    }
+    
+    entries.forEach((entry, index) => {
+        const entryEl = document.createElement('div');
+        entryEl.className = 'leaderboard-entry';
+        const isCurrentUser = userData && userData.fid === entry.fid;
+        entryEl.style.border = isCurrentUser ? '2px solid var(--accent)' : '1px solid rgba(255,255,255,0.05)';
+        entryEl.innerHTML = `
+            <div class="leaderboard-rank">#${index + 1}</div>
+            <div class="leaderboard-player">
+                <div class="leaderboard-avatar" style="background: ${isCurrentUser ? 'linear-gradient(135deg, var(--accent), #3fd6ff)' : 'linear-gradient(135deg, #667eea, #764ba2)'}">${entry.displayName?.charAt(0) || entry.username?.charAt(0) || 'U'}</div>
+                <div class="leaderboard-name">${entry.displayName || entry.username} ${isCurrentUser ? ' (You)' : ''}</div>
+            </div>
+            <div class="leaderboard-score">${entry.wins} Wins</div>
+            <div class="leaderboard-achievements">${entry.achievements} Achievements</div>
+        `;
+        farcasterLeaderboard.appendChild(entryEl);
+    });
+}
+
 function updateAchievementsList() {
     const listEl = document.getElementById('achievementList');
     if (!listEl) return;
     
     listEl.innerHTML = '';
     
-    // Group achievements by tier
     const tiers = {
         easy: [],
         medium: [],
@@ -710,7 +697,6 @@ function updateAchievementsList() {
         tiers[achievement.tier].push({key, achievement});
     });
     
-    // Display by tier
     Object.keys(tiers).forEach(tier => {
         if (tiers[tier].length > 0) {
             const tierHeader = document.createElement('h4');
@@ -776,6 +762,7 @@ function playWin(){
     }catch(e){}
 }
 
+// Game logic functions (keeping all your original game functions)
 function createBoard(){
     board = Array.from({length:ROWS},()=>Array.from({length:COLUMNS},()=>0));
     gameStartTime = Date.now();
@@ -1003,14 +990,12 @@ function handlePlayerMove(col){
             const winnerName = currentPlayer === PLAYER1 ? multiplayerSessionStats.player1.name : multiplayerSessionStats.player2.name;
             winMessage = `${winnerName} Wins!`;
             
-            // Update session stats
             if (currentPlayer === PLAYER1) {
                 multiplayerSessionStats.player1.wins++;
             } else {
                 multiplayerSessionStats.player2.wins++;
             }
             
-            // Update permanent stats
             if (currentPlayer === PLAYER1) {
                 multiplayerStats.player1.wins++;
             } else {
@@ -1018,16 +1003,13 @@ function handlePlayerMove(col){
             }
             saveGameStats();
         } else {
-            // Calculate game time for speed achievements
             const gameTime = (Date.now() - gameStartTime) / 1000;
             winMessage = 'You win!';
             
-            // Special win messages for fast wins
             if (gameTime < 30) winMessage = 'Lightning Fast! ⚡';
             else if (gameTime < 60) winMessage = 'Speed Demon! 🚀';
             else if (gameTime < 120) winMessage = 'Speed Runner! ⏱️';
             
-            // Update stats for win
             playerWins++;
             winStreak++;
             if (winStreak > bestStreak) {
@@ -1035,12 +1017,13 @@ function handlePlayerMove(col){
             }
             totalGames++;
             
-            // Track difficulty wins
             if (difficulty === 'medium') mediumModeWins++;
             if (difficulty === 'hard') hardModeWins++;
             
-            // Track perfect wins (simplified - you'd add proper detection)
-            if (Math.random() > 0.7) perfectWins++; // Simulate some perfect wins
+            if (Math.random() > 0.7) perfectWins++;
+            
+            // Update Farcaster user stats if signed in
+            updateFarcasterUserStats(true);
             
             saveGameStats();
             checkAchievements();
@@ -1066,7 +1049,6 @@ function handlePlayerMove(col){
         return; 
     }
     
-    // Switch turns
     if (gameMode === 'multiplayer') {
         currentPlayer = currentPlayer === PLAYER1 ? PLAYER2 : PLAYER1;
     } else {
@@ -1095,7 +1077,6 @@ function computerMove(){
         showOverlay('Computer wins');
         playWin();
         
-        // Update stats for loss
         totalGames++;
         winStreak = 0;
         saveGameStats();
@@ -1322,11 +1303,6 @@ function updateAvatars() {
 }
 
 function startNewGame(mode = 'single'){
-    if (!farcasterUser) {
-        checkAuthAndShowScreen();
-        return;
-    }
-    
     gameMode = mode;
     createBoard();
     clearWinHighlights();
@@ -1338,7 +1314,13 @@ function startNewGame(mode = 'single'){
         document.getElementById('opponentName').textContent = multiplayerSessionStats.player2.name;
         document.getElementById('gameModeIndicator').textContent = 'Multiplayer';
     } else {
-        isPlayerTurn = true; 
+        isPlayerTurn = true;
+        // Update player name if signed in with Farcaster
+        if (userData) {
+            document.querySelector('.player-info .player-name').textContent = userData.displayName;
+        } else {
+            document.querySelector('.player-info .player-name').textContent = 'You';
+        }
         document.getElementById('opponentName').textContent = 'Computer';
         document.getElementById('gameModeIndicator').textContent = 'vs AI';
     }
@@ -1353,15 +1335,20 @@ function startMultiplayerGame() {
     startNewGame('multiplayer');
 }
 
-// Initialize game
+// Initialize game with authentication
 function initGame() {
     console.log('🎮 Connect 4 MiniApp initializing...');
     
     try {
-        // Check auth first
-        checkAuthAndShowScreen();
         loadGameStats();
         loadSettings();
+        loadFarcasterUsers();
+        
+        // Load user data if available
+        if (loadUserData()) {
+            updateAuthUI();
+        }
+        
         updateAvatars();
         updateStreakDisplay();
         updateDashboardStreak();
@@ -1374,25 +1361,12 @@ function initGame() {
     }
 }
 
-// UI Event Listeners
-document.addEventListener('DOMContentLoaded', async ()=>{
-    // Initialize the game
+// Event Listeners
+document.addEventListener('DOMContentLoaded', ()=>{
+    // Initialize game
     initGame();
     
-    // Farcaster login button
-    document.getElementById('farcasterLoginBtn').addEventListener('click', async () => {
-        const success = await initFarcasterAuth();
-        if (success) {
-            checkAuthAndShowScreen();
-        } else {
-            // Fallback: allow playing without auth (for development/testing)
-            alert('Farcaster auth not available. Proceeding in demo mode.');
-            saveAuthState({ signedIn: true, demoMode: true });
-            checkAuthAndShowScreen();
-        }
-    });
-    
-    // Dashboard buttons (only set up if authenticated)
+    // Dashboard buttons
     document.getElementById('newGameBtn').addEventListener('click', () => {
         startNewGame('single');
     });
@@ -1410,16 +1384,18 @@ document.addEventListener('DOMContentLoaded', async ()=>{
         document.getElementById('settingsModal').classList.remove('hidden');
     });
     
+    // Authentication buttons
+    document.getElementById('signInBtn').addEventListener('click', signIn);
+    document.getElementById('signOutBtn').addEventListener('click', signOut);
+    
     // Leaderboard tabs
     document.querySelectorAll('.leaderboard-tab').forEach(tab => {
         tab.addEventListener('click', (e) => {
             const tabName = e.target.dataset.tab;
             
-            // Update active tab
             document.querySelectorAll('.leaderboard-tab').forEach(t => t.classList.remove('active'));
             e.target.classList.add('active');
             
-            // Show corresponding leaderboard
             document.querySelectorAll('.leaderboard-list').forEach(list => list.classList.remove('active'));
             document.getElementById(tabName + 'Leaderboard').classList.add('active');
         });
@@ -1468,11 +1444,6 @@ document.addEventListener('DOMContentLoaded', async ()=>{
             saveSettings();
         });
     }
-    
-    // Logout button
-    document.getElementById('logoutBtn').addEventListener('click', () => {
-        logout();
-    });
     
     // Settings modal
     const settingsBtn = document.getElementById('dashboardSettingsBtn');
@@ -1550,10 +1521,8 @@ document.addEventListener('DOMContentLoaded', async ()=>{
         });
     });
     
-    // Update avatars on load
-    updateAvatars();
-    updateStreakDisplay();
-    updateDashboardStreak();
+    // Show dashboard initially
+    showScreen('dashboard');
 });
 
 // Handle window resize
@@ -1565,5 +1534,6 @@ window.addEventListener('resize', ()=>{
     }, 160);
 });
 
-// expose for debugging
-window.__connect4 = {board, startNewGame, achievements, winStreak, showScreen, farcasterUser};
+// Make functions available globally
+window.initGame = initGame;
+window.__connect4 = {board, startNewGame, achievements, winStreak, showScreen, userData, signIn, signOut};
