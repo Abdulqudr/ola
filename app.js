@@ -1,13 +1,18 @@
-/* Enhanced Connect Four with Expanded Achievements & Progression */
+/* Enhanced Connect Four with Dashboard, Multiplayer & Themes */
 const COLUMNS = 7;
 const ROWS = 6;
 const PLAYER = 1;
 const AI = 2;
+const PLAYER1 = 1;
+const PLAYER2 = 3; // Different value for multiplayer
+
 let board = null;
 let isPlayerTurn = true;
 let gameOver = false;
 let difficulty = 'easy';
 let currentWinPositions = null;
+let gameMode = 'single'; // 'single' or 'multiplayer'
+let currentPlayer = PLAYER1; // For multiplayer
 
 const boardEl = document.getElementById('board');
 const aiPulseEl = document.getElementById('aiPulse');
@@ -33,9 +38,60 @@ let hardModeWins = 0;
 let mediumModeWins = 0;
 let flawlessWins = 0;
 
+// Multiplayer state (session only - resets on back button)
+let multiplayerSessionStats = {
+    player1: { name: "Player 1", wins: 0 },
+    player2: { name: "Player 2", wins: 0 }
+};
+
+// Permanent multiplayer stats (saved)
+let multiplayerStats = {
+    player1: { name: "Player 1", wins: 0, achievements: 0 },
+    player2: { name: "Player 2", wins: 0, achievements: 0 }
+};
+
 // settings
-const SETTINGS_KEY = 'fourinrow_settings_v1';
+const SETTINGS_KEY = 'fourinrow_settings_v3';
 let settings = { sound: true, theme: 'neon', avatar: 'male' };
+
+// Screen Management
+let currentScreen = 'dashboard';
+
+function showScreen(screenName) {
+    // Hide all screens
+    document.querySelectorAll('.screen').forEach(screen => {
+        screen.classList.remove('active');
+        screen.classList.add('hidden');
+    });
+    
+    // Show target screen
+    const targetScreen = document.getElementById(screenName + 'Screen');
+    if (targetScreen) {
+        targetScreen.classList.remove('hidden');
+        targetScreen.classList.add('active');
+    }
+    
+    currentScreen = screenName;
+    
+    // Update UI based on screen
+    if (screenName === 'game') {
+        updateGameStatus();
+        updateWinCounters();
+    } else if (screenName === 'dashboard') {
+        updateDashboardStreak();
+        // Reset multiplayer session stats when returning to dashboard
+        if (gameMode === 'multiplayer') {
+            resetMultiplayerSession();
+        }
+    }
+}
+
+function resetMultiplayerSession() {
+    multiplayerSessionStats = {
+        player1: { name: "Player 1", wins: 0 },
+        player2: { name: "Player 2", wins: 0 }
+    };
+}
 
 // Enhanced Achievement Definitions with Difficulty Tiers
 const ACHIEVEMENTS = {
@@ -230,11 +286,22 @@ function loadSettings(){
         if(!raw) return;
         const parsed = JSON.parse(raw);
         settings = Object.assign(settings, parsed);
+        applyTheme(settings.theme);
     }catch(e){}
 }
 
 function saveSettings(){
     try{ localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings)); }catch(e){}
+}
+
+function applyTheme(themeName) {
+    document.documentElement.setAttribute('data-theme', themeName);
+    settings.theme = themeName;
+    saveSettings();
+    // Re-render board to update disk colors
+    if (board) {
+        renderBoard();
+    }
 }
 
 function loadGameStats() {
@@ -251,6 +318,10 @@ function loadGameStats() {
         mediumModeWins = stats.mediumModeWins || 0;
         flawlessWins = stats.flawlessWins || 0;
         lastPlayedDate = stats.lastPlayedDate || null;
+        
+        // Load permanent multiplayer stats
+        const multiplayerData = JSON.parse(localStorage.getItem('four_multiplayerStats') || '{}');
+        multiplayerStats = Object.assign(multiplayerStats, multiplayerData);
         
         // Initialize missing achievements
         Object.keys(ACHIEVEMENTS).forEach(key => {
@@ -279,6 +350,7 @@ function saveGameStats() {
         lastPlayedDate
     };
     localStorage.setItem('four_gameStats', JSON.stringify(stats));
+    localStorage.setItem('four_multiplayerStats', JSON.stringify(multiplayerStats));
 }
 
 function resetGameStats() {
@@ -302,6 +374,13 @@ function updateWinCounters() {
     if (playerWinsEl) playerWinsEl.textContent = playerWins;
     if (aiWinsEl) aiWinsEl.textContent = totalGames - playerWins;
     updateStreakDisplay();
+}
+
+function updateDashboardStreak() {
+    const streakCountEl = document.getElementById('streakCount');
+    if (streakCountEl) {
+        streakCountEl.textContent = winStreak;
+    }
 }
 
 function updateStreakDisplay() {
@@ -329,14 +408,22 @@ function updateStreakDisplay() {
 
 function updateGameStatus() {
     if (gameOver) {
-        statusTextEl.textContent = 'GAME OVER';
+        statusTextEl.textContent = '';
         return;
     }
     
-    if (isPlayerTurn) {
-        statusTextEl.textContent = 'YOUR TURN';
+    if (gameMode === 'multiplayer') {
+        if (currentPlayer === PLAYER1) {
+            statusTextEl.textContent = `${multiplayerSessionStats.player1.name}'s TURN`;
+        } else {
+            statusTextEl.textContent = `${multiplayerSessionStats.player2.name}'s TURN`;
+        }
     } else {
-        statusTextEl.textContent = 'COMPUTER';
+        if (isPlayerTurn) {
+            statusTextEl.textContent = 'YOUR TURN';
+        } else {
+            statusTextEl.textContent = 'COMPUTER';
+        }
     }
 }
 
@@ -384,6 +471,10 @@ function getCurrentStats() {
     };
 }
 
+function getAchievementsCount() {
+    return Object.values(achievements).filter(achievement => achievement.unlocked).length;
+}
+
 function showAchievementToast(achievement) {
     const toast = document.createElement('div');
     toast.className = 'achievement-toast';
@@ -422,6 +513,75 @@ function updateStatsDisplay() {
     document.getElementById('statBestStreak').textContent = bestStreak;
     
     updateAchievementsList();
+}
+
+function updateLeaderboardDisplay() {
+    updateSinglePlayerLeaderboard();
+    updateMultiplayerLeaderboard();
+}
+
+function updateSinglePlayerLeaderboard() {
+    const singleLeaderboard = document.getElementById('singleLeaderboard');
+    if (!singleLeaderboard) return;
+    
+    singleLeaderboard.innerHTML = '';
+    
+    const achievementsCount = getAchievementsCount();
+    
+    const entryEl = document.createElement('div');
+    entryEl.className = 'leaderboard-entry';
+    entryEl.innerHTML = `
+        <div class="leaderboard-rank">#1</div>
+        <div class="leaderboard-player">
+            <div class="leaderboard-avatar">Y</div>
+            <div class="leaderboard-name">You</div>
+        </div>
+        <div class="leaderboard-score">${playerWins} Wins</div>
+        <div class="leaderboard-achievements">${achievementsCount} Achievements</div>
+    `;
+    singleLeaderboard.appendChild(entryEl);
+}
+
+function updateMultiplayerLeaderboard() {
+    const multiplayerLeaderboard = document.getElementById('multiplayerLeaderboard');
+    if (!multiplayerLeaderboard) return;
+    
+    multiplayerLeaderboard.innerHTML = '';
+    
+    // Create leaderboard entries sorted by wins
+    const entries = [
+        { 
+            name: multiplayerStats.player1.name, 
+            wins: multiplayerStats.player1.wins, 
+            achievements: multiplayerStats.player1.achievements 
+        },
+        { 
+            name: multiplayerStats.player2.name, 
+            wins: multiplayerStats.player2.wins, 
+            achievements: multiplayerStats.player2.achievements 
+        }
+    ].sort((a, b) => {
+        // Sort by wins first, then by achievements
+        if (b.wins !== a.wins) {
+            return b.wins - a.wins;
+        }
+        return b.achievements - a.achievements;
+    });
+    
+    entries.forEach((entry, index) => {
+        const entryEl = document.createElement('div');
+        entryEl.className = 'leaderboard-entry';
+        entryEl.innerHTML = `
+            <div class="leaderboard-rank">#${index + 1}</div>
+            <div class="leaderboard-player">
+                <div class="leaderboard-avatar">${entry.name.charAt(0)}</div>
+                <div class="leaderboard-name">${entry.name}</div>
+            </div>
+            <div class="leaderboard-score">${entry.wins} Wins</div>
+            <div class="leaderboard-achievements">${entry.achievements} Achievements</div>
+        `;
+        multiplayerLeaderboard.appendChild(entryEl);
+    });
 }
 
 function updateAchievementsList() {
@@ -529,11 +689,14 @@ function renderBoard(){
             disk.className = 'disk';
             const val = board[r][c];
             
-            if(val===PLAYER){
+            if(val===PLAYER || val===PLAYER1){
                 disk.style.background = 'linear-gradient(180deg, var(--player-disk-start), var(--player-disk-end))';
                 disk.classList.add('present');
             } else if(val===AI){
                 disk.style.background = 'linear-gradient(180deg, var(--ai-disk-start), var(--ai-disk-end))';
+                disk.classList.add('present');
+            } else if(val===PLAYER2){
+                disk.style.background = 'linear-gradient(180deg, var(--player2-disk-start), var(--player2-disk-end))';
                 disk.classList.add('present');
             }
             
@@ -546,7 +709,7 @@ function renderBoard(){
 
             cell.addEventListener('click',()=>{
                 if(gameOver) return;
-                if(!isPlayerTurn) return;
+                if(gameMode === 'single' && !isPlayerTurn) return;
                 handlePlayerMove(c);
             });
 
@@ -711,61 +874,101 @@ function isBoardFull(b){
 function handlePlayerMove(col){
     const row = getNextOpenRow(col);
     if(row===-1) return;
-    dropPiece(row,col,PLAYER);
+    
+    let currentPiece;
+    if (gameMode === 'multiplayer') {
+        currentPiece = currentPlayer;
+    } else {
+        currentPiece = PLAYER;
+    }
+    
+    dropPiece(row, col, currentPiece);
     lastMove = {r: row, c: col};
     renderBoard();
-    const winPosP = winningPositions(board, PLAYER);
-    if(winPosP){
+    
+    const winPos = winningPositions(board, currentPiece);
+    if(winPos){
         gameOver=true;
-        highlightWinningPositions(winPosP);
+        highlightWinningPositions(winPos);
         
-        // Calculate game time for speed achievements
-        const gameTime = (Date.now() - gameStartTime) / 1000;
-        let winMessage = 'You win!';
-        
-        // Special win messages for fast wins
-        if (gameTime < 30) winMessage = 'Lightning Fast! ⚡';
-        else if (gameTime < 60) winMessage = 'Speed Demon! 🚀';
-        else if (gameTime < 120) winMessage = 'Speed Runner! ⏱️';
+        let winMessage;
+        if (gameMode === 'multiplayer') {
+            const winnerName = currentPlayer === PLAYER1 ? multiplayerSessionStats.player1.name : multiplayerSessionStats.player2.name;
+            winMessage = `${winnerName} Wins!`;
+            
+            // Update session stats
+            if (currentPlayer === PLAYER1) {
+                multiplayerSessionStats.player1.wins++;
+            } else {
+                multiplayerSessionStats.player2.wins++;
+            }
+            
+            // Update permanent stats
+            if (currentPlayer === PLAYER1) {
+                multiplayerStats.player1.wins++;
+            } else {
+                multiplayerStats.player2.wins++;
+            }
+            saveGameStats();
+        } else {
+            // Calculate game time for speed achievements
+            const gameTime = (Date.now() - gameStartTime) / 1000;
+            winMessage = 'You win!';
+            
+            // Special win messages for fast wins
+            if (gameTime < 30) winMessage = 'Lightning Fast! ⚡';
+            else if (gameTime < 60) winMessage = 'Speed Demon! 🚀';
+            else if (gameTime < 120) winMessage = 'Speed Runner! ⏱️';
+            
+            // Update stats for win
+            playerWins++;
+            winStreak++;
+            if (winStreak > bestStreak) {
+                bestStreak = winStreak;
+            }
+            totalGames++;
+            
+            // Track difficulty wins
+            if (difficulty === 'medium') mediumModeWins++;
+            if (difficulty === 'hard') hardModeWins++;
+            
+            // Track perfect wins (simplified - you'd add proper detection)
+            if (Math.random() > 0.7) perfectWins++; // Simulate some perfect wins
+            
+            saveGameStats();
+            checkAchievements();
+        }
         
         showOverlay(winMessage);
         playWin();
-        
-        // Update stats for win
-        playerWins++;
-        winStreak++;
-        if (winStreak > bestStreak) {
-            bestStreak = winStreak;
-        }
-        totalGames++;
-        
-        // Track difficulty wins
-        if (difficulty === 'medium') mediumModeWins++;
-        if (difficulty === 'hard') hardModeWins++;
-        
-        // Track perfect wins (simplified - you'd add proper detection)
-        if (Math.random() > 0.7) perfectWins++; // Simulate some perfect wins
-        
-        saveGameStats();
-        checkAchievements();
         updateWinCounters();
         updateGameStatus();
         return;
     }
+    
     if(isBoardFull(board)){ 
         gameOver=true; 
         showOverlay('Draw!'); 
-        totalGames++;
-        winStreak = 0;
-        saveGameStats();
+        if (gameMode === 'single') {
+            totalGames++;
+            winStreak = 0;
+            saveGameStats();
+        }
         updateWinCounters();
         updateGameStatus(); 
         return; 
     }
-    isPlayerTurn=false;
+    
+    // Switch turns
+    if (gameMode === 'multiplayer') {
+        currentPlayer = currentPlayer === PLAYER1 ? PLAYER2 : PLAYER1;
+    } else {
+        isPlayerTurn = false;
+        aiPulseEl && aiPulseEl.classList.add('pulsing');
+        setTimeout(()=>computerMove(), 800);
+    }
+    
     updateGameStatus();
-    aiPulseEl && aiPulseEl.classList.add('pulsing');
-    setTimeout(()=>computerMove(), 800);
 }
 
 function computerMove(){
@@ -1011,28 +1214,78 @@ function updateAvatars() {
     }
 }
 
-function startNewGame(){
+function startNewGame(mode = 'single'){
+    gameMode = mode;
     createBoard();
     clearWinHighlights();
     hideOverlay();
     renderBoard();
-    isPlayerTurn=true; 
-    gameOver=false;
+    
+    if (mode === 'multiplayer') {
+        currentPlayer = PLAYER1;
+        document.getElementById('opponentName').textContent = multiplayerSessionStats.player2.name;
+        document.getElementById('gameModeIndicator').textContent = 'Multiplayer';
+    } else {
+        isPlayerTurn = true; 
+        document.getElementById('opponentName').textContent = 'Computer';
+        document.getElementById('gameModeIndicator').textContent = 'vs AI';
+    }
+    
+    gameOver = false;
     updateWinCounters();
     updateGameStatus();
+    showScreen('game');
+}
+
+function startMultiplayerGame() {
+    startNewGame('multiplayer');
 }
 
 // Initialize game
 loadGameStats();
 loadSettings();
-startNewGame();
 
 // UI Event Listeners
 document.addEventListener('DOMContentLoaded', ()=>{
     loadSettings();
     
-    // Apply theme
-    document.documentElement.setAttribute('data-theme', settings.theme);
+    // Dashboard buttons
+    document.getElementById('newGameBtn').addEventListener('click', () => {
+        startNewGame('single');
+    });
+    
+    document.getElementById('multiplayerBtn').addEventListener('click', () => {
+        startMultiplayerGame();
+    });
+    
+    document.getElementById('leaderboardBtn').addEventListener('click', () => {
+        updateLeaderboardDisplay();
+        document.getElementById('leaderboardModal').classList.remove('hidden');
+    });
+    
+    document.getElementById('dashboardSettingsBtn').addEventListener('click', () => {
+        document.getElementById('settingsModal').classList.remove('hidden');
+    });
+    
+    // Leaderboard tabs
+    document.querySelectorAll('.leaderboard-tab').forEach(tab => {
+        tab.addEventListener('click', (e) => {
+            const tabName = e.target.dataset.tab;
+            
+            // Update active tab
+            document.querySelectorAll('.leaderboard-tab').forEach(t => t.classList.remove('active'));
+            e.target.classList.add('active');
+            
+            // Show corresponding leaderboard
+            document.querySelectorAll('.leaderboard-list').forEach(list => list.classList.remove('active'));
+            document.getElementById(tabName + 'Leaderboard').classList.add('active');
+        });
+    });
+    
+    // Back to dashboard from game
+    document.getElementById('backToDashboardBtn').addEventListener('click', () => {
+        showScreen('dashboard');
+    });
     
     // Set difficulty
     const difficultySelect = document.getElementById('difficulty');
@@ -1048,9 +1301,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
     if(themeSelect){
         themeSelect.value = settings.theme;
         themeSelect.addEventListener('change', (e)=>{
-            settings.theme = e.target.value;
-            document.documentElement.setAttribute('data-theme', settings.theme);
-            saveSettings();
+            applyTheme(e.target.value);
         });
     }
     
@@ -1076,15 +1327,11 @@ document.addEventListener('DOMContentLoaded', ()=>{
     }
     
     // Settings modal
-    const settingsBtn = document.getElementById('settingsBtn');
+    const settingsBtn = document.getElementById('dashboardSettingsBtn');
     const settingsModal = document.getElementById('settingsModal');
     const closeSettingsBtn = document.getElementById('closeSettingsBtn');
     
-    if(settingsBtn && settingsModal) {
-        settingsBtn.addEventListener('click', ()=>{
-            settingsModal.classList.remove('hidden');
-        });
-        
+    if(settingsModal) {
         closeSettingsBtn.addEventListener('click', ()=>{
             settingsModal.classList.add('hidden');
         });
@@ -1121,11 +1368,11 @@ document.addEventListener('DOMContentLoaded', ()=>{
         });
     }
     
-    // New Game button
-    const newGameBtn = document.getElementById('newGameBtn');
-    if(newGameBtn) {
-        newGameBtn.addEventListener('click', ()=>{
-            startNewGame();
+    // Leaderboard modal
+    const closeLeaderboardBtn = document.getElementById('closeLeaderboardBtn');
+    if(closeLeaderboardBtn) {
+        closeLeaderboardBtn.addEventListener('click', () => {
+            document.getElementById('leaderboardModal').classList.add('hidden');
         });
     }
     
@@ -1133,7 +1380,15 @@ document.addEventListener('DOMContentLoaded', ()=>{
     const overlayNewBtn = document.getElementById('overlayNew');
     if(overlayNewBtn) {
         overlayNewBtn.addEventListener('click', ()=>{
-            startNewGame();
+            startNewGame(gameMode);
+        });
+    }
+    
+    // Dashboard button in overlay
+    const overlayDashboardBtn = document.getElementById('overlayDashboard');
+    if(overlayDashboardBtn) {
+        overlayDashboardBtn.addEventListener('click', ()=>{
+            showScreen('dashboard');
         });
     }
     
@@ -1150,6 +1405,10 @@ document.addEventListener('DOMContentLoaded', ()=>{
     // Update avatars on load
     updateAvatars();
     updateStreakDisplay();
+    updateDashboardStreak();
+    
+    // Show dashboard initially
+    showScreen('dashboard');
 });
 
 // Handle window resize
@@ -1162,7 +1421,8 @@ window.addEventListener('resize', ()=>{
 });
 
 // expose for debugging
-window.__connect4 = {board, startNewGame, achievements, winStreak};
+window.__connect4 = {board, startNewGame, achievements, winStreak, showScreen};
+
 // ADD THIS TO THE END OF YOUR app.js
 function initGame() {
     console.log('🎮 Connect 4 MiniApp initializing...');
@@ -1170,9 +1430,9 @@ function initGame() {
     try {
         loadGameStats();
         loadSettings();
-        startNewGame();
         updateAvatars();
         updateStreakDisplay();
+        updateDashboardStreak();
         
         console.log('✅ Connect 4 MiniApp ready!');
         return true;
