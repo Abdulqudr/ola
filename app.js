@@ -16,16 +16,12 @@ let currentPlayer = PLAYER1; // For multiplayer
 
 const boardEl = document.getElementById('board');
 const aiPulseEl = document.getElementById('aiPulse');
+const sfxPlaceEl = document.getElementById('sfxPlace');
+const sfxWinEl = document.getElementById('sfxWin');
 const statusTextEl = document.getElementById('statusText');
 const playerWinsEl = document.getElementById('playerWins');
 const aiWinsEl = document.getElementById('aiWins');
 let lastMove = null;
-
-// Sound management
-let audioContext = null;
-let placeSoundBuffer = null;
-let winSoundBuffer = null;
-let soundsLoaded = false;
 
 // Enhanced Game State
 let winStreak = 0;
@@ -58,202 +54,150 @@ let multiplayerStats = {
 const SETTINGS_KEY = 'fourinrow_settings_v3';
 let settings = { sound: true, theme: 'neon', avatar: 'male' };
 
+// Farcaster Auth State
+let farcasterUser = null;
+const AUTH_KEY = 'farcaster_auth_v1';
+
+// Farcaster Auth Configuration
+const FARCASTER_CONFIG = {
+  request: "Farcaster Auth",
+  domain: "ola-azure.vercel.app",
+  ethereumAddress: "0xe1Bd3D122995a3d3A253F564c1fD54d18407A657",
+  uri: "https://ola-azure.vercel.app",
+  version: 1,
+  chainId: 10,
+  nonce: generateNonce(),
+  issuedAt: new Date().toISOString(),
+  expirationTime: new Date(Date.now() + 30 * 60 * 1000).toISOString(), // 30 minutes
+  resources: ["farcaster://fid/1059398"]
+};
+
+function generateNonce() {
+  return 'naa6be5b569c231363171a0062b8839b87' + Date.now();
+}
+
 // Screen Management
-let currentScreen = 'dashboard';
+let currentScreen = 'login';
 
-// Initialize Web Audio API
-function initAudio() {
+// Load auth state from localStorage
+function loadAuthState() {
+  try {
+    const authData = localStorage.getItem(AUTH_KEY);
+    if (authData) {
+      farcasterUser = JSON.parse(authData);
+      // Check if token is still valid
+      if (new Date(farcasterUser.expirationTime) > new Date()) {
+        return true;
+      } else {
+        // Token expired
+        farcasterUser = null;
+        localStorage.removeItem(AUTH_KEY);
+      }
+    }
+  } catch (e) {
+    console.error('Error loading auth state:', e);
+  }
+  return false;
+}
+
+// Save auth state to localStorage
+function saveAuthState(userData) {
+  try {
+    farcasterUser = userData;
+    localStorage.setItem(AUTH_KEY, JSON.stringify(userData));
+  } catch (e) {
+    console.error('Error saving auth state:', e);
+  }
+}
+
+// Initialize Farcaster Auth
+async function initFarcasterAuth() {
+  // Check if we're in a Farcaster client
+  if (typeof window !== 'undefined' && window.farcaster) {
     try {
-        audioContext = new (window.AudioContext || window.webkitAudioContext)();
-        loadSounds();
-    } catch (e) {
-        console.log('Web Audio API not supported, using fallback');
-        initFallbackAudio();
+      const authResult = await window.farcaster.authenticate(FARCASTER_CONFIG);
+      if (authResult && authResult.success) {
+        saveAuthState({
+          ...authResult,
+          signedIn: true,
+          expirationTime: FARCASTER_CONFIG.expirationTime
+        });
+        return true;
+      }
+    } catch (error) {
+      console.error('Farcaster auth error:', error);
     }
+  }
+  return false;
 }
 
-function loadSounds() {
-    // Create simple synthesized sounds for immediate playback
-    createSynthesizedSounds();
-    soundsLoaded = true;
+// Check auth and show appropriate screen
+function checkAuthAndShowScreen() {
+  const isAuthenticated = loadAuthState();
+  
+  if (isAuthenticated && farcasterUser) {
+    showScreen('dashboard');
+    updateUserDisplay();
+  } else {
+    showScreen('login');
+  }
 }
 
-function createSynthesizedSounds() {
-    // Create drop sound
-    placeSoundBuffer = createDropSound();
-    
-    // Create win sound
-    winSoundBuffer = createWinSound();
-}
-
-function createDropSound() {
-    const duration = 0.1;
-    const sampleRate = audioContext.sampleRate;
-    const frameCount = sampleRate * duration;
-    const buffer = audioContext.createBuffer(1, frameCount, sampleRate);
-    const data = buffer.getChannelData(0);
-    
-    for (let i = 0; i < frameCount; i++) {
-        const t = i / sampleRate;
-        // Simple drop sound: quick frequency sweep
-        const freq = 800 * Math.exp(-t * 10);
-        data[i] = 0.3 * Math.sin(2 * Math.PI * freq * t) * Math.exp(-t * 20);
+// Update UI with user info
+function updateUserDisplay() {
+  if (farcasterUser && farcasterUser.user) {
+    const userInfoEl = document.getElementById('userInfo');
+    if (userInfoEl) {
+      userInfoEl.textContent = `Signed in as ${farcasterUser.user.username || `FID ${farcasterUser.user.fid}`}`;
     }
-    
-    return buffer;
+  }
 }
 
-function createWinSound() {
-    const duration = 0.5;
-    const sampleRate = audioContext.sampleRate;
-    const frameCount = sampleRate * duration;
-    const buffer = audioContext.createBuffer(1, frameCount, sampleRate);
-    const data = buffer.getChannelData(0);
-    
-    for (let i = 0; i < frameCount; i++) {
-        const t = i / sampleRate;
-        // Victory fanfare: multiple frequencies
-        const freq1 = 523.25; // C5
-        const freq2 = 659.25; // E5
-        const freq3 = 783.99; // G5
-        
-        const envelope = Math.exp(-t * 2);
-        const wave1 = Math.sin(2 * Math.PI * freq1 * t);
-        const wave2 = Math.sin(2 * Math.PI * freq2 * t);
-        const wave3 = Math.sin(2 * Math.PI * freq3 * t);
-        
-        data[i] = 0.2 * envelope * (wave1 + wave2 + wave3) / 3;
-    }
-    
-    return buffer;
-}
-
-function initFallbackAudio() {
-    // Fallback using HTML5 Audio with preloading
-    const placeAudio = new Audio();
-    const winAudio = new Audio();
-    
-    // Try to load sounds, but don't block on it
-    placeAudio.preload = 'auto';
-    winAudio.preload = 'auto';
-    
-    // Use data URLs for embedded sounds to avoid loading delays
-    placeAudio.src = 'data:audio/wav;base64,UklGRigAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQQAAAAAAA==';
-    winAudio.src = 'data:audio/wav;base64,UklGRigAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQQAAAAAAA==';
-    
-    soundsLoaded = true;
-}
-
-function playSoundImmediately(soundBuffer) {
-    if (!settings.sound || !soundsLoaded || !audioContext) return;
-    
-    try {
-        const source = audioContext.createBufferSource();
-        source.buffer = soundBuffer;
-        source.connect(audioContext.destination);
-        source.start(0);
-    } catch (e) {
-        console.log('Error playing sound:', e);
-    }
-}
-
-function playClick(){
-    if (!settings.sound) return;
-    
-    if (audioContext && placeSoundBuffer) {
-        playSoundImmediately(placeSoundBuffer);
-    } else {
-        // Fallback: create a simple beep using Web Audio
-        try {
-            const oscillator = audioContext.createOscillator();
-            const gainNode = audioContext.createGain();
-            
-            oscillator.connect(gainNode);
-            gainNode.connect(audioContext.destination);
-            
-            oscillator.frequency.setValueAtTime(800, audioContext.currentTime);
-            gainNode.gain.setValueAtTime(0.1, audioContext.currentTime);
-            gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.1);
-            
-            oscillator.start(audioContext.currentTime);
-            oscillator.stop(audioContext.currentTime + 0.1);
-        } catch (e) {
-            // Last resort: use a simple timeout-based beep
-            setTimeout(() => {
-                // This will create a visual feedback if audio fails
-                console.log('Sound played');
-            }, 0);
-        }
-    }
-}
-
-function playWin(){
-    if (!settings.sound) return;
-    
-    if (audioContext && winSoundBuffer) {
-        playSoundImmediately(winSoundBuffer);
-    } else {
-        // Fallback victory sound
-        try {
-            const now = audioContext.currentTime;
-            const oscillator = audioContext.createOscillator();
-            const gainNode = audioContext.createGain();
-            
-            oscillator.connect(gainNode);
-            gainNode.connect(audioContext.destination);
-            
-            oscillator.frequency.setValueAtTime(523.25, now); // C5
-            oscillator.frequency.setValueAtTime(659.25, now + 0.1); // E5
-            oscillator.frequency.setValueAtTime(783.99, now + 0.2); // G5
-            
-            gainNode.gain.setValueAtTime(0, now);
-            gainNode.gain.linearRampToValueAtTime(0.1, now + 0.05);
-            gainNode.gain.exponentialRampToValueAtTime(0.01, now + 0.5);
-            
-            oscillator.start(now);
-            oscillator.stop(now + 0.5);
-        } catch (e) {
-            setTimeout(() => {
-                console.log('Win sound played');
-            }, 0);
-        }
-    }
+// Logout function
+function logout() {
+  farcasterUser = null;
+  localStorage.removeItem(AUTH_KEY);
+  checkAuthAndShowScreen();
 }
 
 function showScreen(screenName) {
-    // Hide all screens
-    document.querySelectorAll('.screen').forEach(screen => {
-        screen.classList.remove('active');
-        screen.classList.add('hidden');
-    });
-    
-    // Show target screen
-    const targetScreen = document.getElementById(screenName + 'Screen');
-    if (targetScreen) {
-        targetScreen.classList.remove('hidden');
-        targetScreen.classList.add('active');
+  // Don't show protected screens if not authenticated
+  if (screenName !== 'login' && !farcasterUser) {
+    screenName = 'login';
+  }
+  
+  // Hide all screens
+  document.querySelectorAll('.screen').forEach(screen => {
+    screen.classList.remove('active');
+    screen.classList.add('hidden');
+  });
+  
+  // Show target screen
+  const targetScreen = document.getElementById(screenName + 'Screen');
+  if (targetScreen) {
+    targetScreen.classList.remove('hidden');
+    targetScreen.classList.add('active');
+  }
+  
+  currentScreen = screenName;
+  
+  // Update UI based on screen
+  if (screenName === 'game') {
+    updateGameStatus();
+    updateWinCounters();
+  } else if (screenName === 'dashboard') {
+    updateDashboardStreak();
+    if (gameMode === 'multiplayer') {
+      resetMultiplayerSession();
     }
-    
-    currentScreen = screenName;
-    
-    // Update UI based on screen
-    if (screenName === 'game') {
-        updateGameStatus();
-        updateWinCounters();
-    } else if (screenName === 'dashboard') {
-        updateDashboardStreak();
-        // Reset multiplayer session stats when returning to dashboard
-        if (gameMode === 'multiplayer') {
-            resetMultiplayerSession();
-        }
-    }
+  }
 }
 
 function resetMultiplayerSession() {
-    multiplayerSessionStats = {
-        player1: { name: "Player 1", wins: 0 },
-        player2: { name: "Player 2", wins: 0 }
-    };
+  multiplayerSessionStats = {
+    player1: { name: "Player 1", wins: 0 },
+    player2: { name: "Player 2", wins: 0 }
+  };
 }
 
 // Enhanced Achievement Definitions with Difficulty Tiers
@@ -571,7 +515,7 @@ function updateStreakDisplay() {
 
 function updateGameStatus() {
     if (gameOver) {
-        statusTextEl.textContent = 'GAME OVER';
+        statusTextEl.textContent = '';
         return;
     }
     
@@ -809,6 +753,27 @@ function getTierColor(tier) {
         case 'grandmaster': return '#9C27B0';
         default: return '#2196F3';
     }
+}
+
+// Audio functions
+function playClick(){
+    if(!settings.sound) return;
+    try{
+        if(sfxPlaceEl){ 
+            sfxPlaceEl.currentTime = 0; 
+            sfxPlaceEl.play().catch(()=>{}); 
+        }
+    }catch(e){}
+}
+
+function playWin(){
+    if(!settings.sound) return;
+    try{
+        if(sfxWinEl){ 
+            sfxWinEl.currentTime = 0; 
+            sfxWinEl.play().catch(()=>{}); 
+        }
+    }catch(e){}
 }
 
 function createBoard(){
@@ -1357,6 +1322,11 @@ function updateAvatars() {
 }
 
 function startNewGame(mode = 'single'){
+    if (!farcasterUser) {
+        checkAuthAndShowScreen();
+        return;
+    }
+    
     gameMode = mode;
     createBoard();
     clearWinHighlights();
@@ -1384,15 +1354,45 @@ function startMultiplayerGame() {
 }
 
 // Initialize game
-loadGameStats();
-loadSettings();
-initAudio(); // Initialize audio system
+function initGame() {
+    console.log('🎮 Connect 4 MiniApp initializing...');
+    
+    try {
+        // Check auth first
+        checkAuthAndShowScreen();
+        loadGameStats();
+        loadSettings();
+        updateAvatars();
+        updateStreakDisplay();
+        updateDashboardStreak();
+        
+        console.log('✅ Connect 4 MiniApp ready!');
+        return true;
+    } catch (error) {
+        console.error('❌ Game initialization error:', error);
+        return false;
+    }
+}
 
 // UI Event Listeners
-document.addEventListener('DOMContentLoaded', ()=>{
-    loadSettings();
+document.addEventListener('DOMContentLoaded', async ()=>{
+    // Initialize the game
+    initGame();
     
-    // Dashboard buttons
+    // Farcaster login button
+    document.getElementById('farcasterLoginBtn').addEventListener('click', async () => {
+        const success = await initFarcasterAuth();
+        if (success) {
+            checkAuthAndShowScreen();
+        } else {
+            // Fallback: allow playing without auth (for development/testing)
+            alert('Farcaster auth not available. Proceeding in demo mode.');
+            saveAuthState({ signedIn: true, demoMode: true });
+            checkAuthAndShowScreen();
+        }
+    });
+    
+    // Dashboard buttons (only set up if authenticated)
     document.getElementById('newGameBtn').addEventListener('click', () => {
         startNewGame('single');
     });
@@ -1468,6 +1468,11 @@ document.addEventListener('DOMContentLoaded', ()=>{
             saveSettings();
         });
     }
+    
+    // Logout button
+    document.getElementById('logoutBtn').addEventListener('click', () => {
+        logout();
+    });
     
     // Settings modal
     const settingsBtn = document.getElementById('dashboardSettingsBtn');
@@ -1549,9 +1554,6 @@ document.addEventListener('DOMContentLoaded', ()=>{
     updateAvatars();
     updateStreakDisplay();
     updateDashboardStreak();
-    
-    // Show dashboard initially
-    showScreen('dashboard');
 });
 
 // Handle window resize
@@ -1564,26 +1566,4 @@ window.addEventListener('resize', ()=>{
 });
 
 // expose for debugging
-window.__connect4 = {board, startNewGame, achievements, winStreak, showScreen};
-
-// ADD THIS TO THE END OF YOUR app.js
-function initGame() {
-    console.log('🎮 Connect 4 MiniApp initializing...');
-    
-    try {
-        loadGameStats();
-        loadSettings();
-        updateAvatars();
-        updateStreakDisplay();
-        updateDashboardStreak();
-        
-        console.log('✅ Connect 4 MiniApp ready!');
-        return true;
-    } catch (error) {
-        console.error('❌ Game initialization error:', error);
-        return false;
-    }
-}
-
-// Make it available globally
-window.initGame = initGame;
+window.__connect4 = {board, startNewGame, achievements, winStreak, showScreen, farcasterUser};
