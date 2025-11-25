@@ -1,0 +1,5 @@
+{
+  "dependencies": {
+    "@farcaster/quick-auth": "^0.0.8"
+  }
+}
