@@ -29,216 +29,244 @@
   <meta property="og:image" content="https://ola-azure.vercel.app/hero.png">
 </head>
 <body>
-  <div class="app">
-    <header class="topbar">
-      <div class="player-info">
-        <div class="player-avatar">
-          <img src="assets/avatars/male-avatar.png" alt="You" class="avatar-image">
-          <div class="avatar-fallback">♂</div>
-        </div>
-        <div class="player-name">You</div>
-        <div class="win-counter">Wins: <span id="playerWins" class="win-count">0</span></div>
-        <div class="player-disk-indicator player-color"></div>
+  <!-- Dashboard Screen -->
+  <div id="dashboardScreen" class="screen active">
+    <div class="dashboard">
+      <div class="dashboard-header">
+        <h1 class="dashboard-title">CONNECT 4</h1>
+        <p class="dashboard-subtitle">Think. Block. Connect. Win.</p>
       </div>
       
-      <div class="game-status">
-        <div class="status-text" id="statusText">YOUR TURN</div>
-        <div class="game-mode-indicator" id="gameModeIndicator">vs AI</div>
+      <div class="dashboard-menu">
+        <button id="newGameBtn" class="dashboard-btn primary">
+          <span class="btn-icon">🎮</span>
+          New Game
+        </button>
+        <button id="multiplayerBtn" class="dashboard-btn">
+          <span class="btn-icon">👥</span>
+          Multiplayer
+        </button>
+        <button id="leaderboardBtn" class="dashboard-btn">
+          <span class="btn-icon">🏆</span>
+          Leaderboard
+        </button>
+        <button id="dashboardSettingsBtn" class="dashboard-btn">
+          <span class="btn-icon">⚙️</span>
+          Settings
+        </button>
       </div>
       
-      <div class="player-info opponent">
-        <div class="player-avatar">
-          <img src="assets/avatars/ai-avatar.png" alt="Computer" class="avatar-image">
-          <div class="avatar-fallback">AI</div>
-        </div>
-        <div class="player-name" id="opponentName">Computer</div>
-        <div class="win-counter">Wins: <span id="aiWins" class="win-count">0</span></div>
-        <div class="player-disk-indicator ai-color"></div>
-      </div>
-    </header>
-
-    <main class="game-area">
-      <div class="board-wrap">
-        <div id="aiPulse" class="ai-pulse hidden" aria-hidden="true"></div>
-        <div id="board" class="board" aria-label="Connect Four board"></div>
-      </div>
-    </main>
-
-    <div class="bottom-controls">
-      <button id="helpBtn" class="icon-btn help-icon" aria-label="How to Play">
-        <span>?</span>
-      </button>
-      
-      <button id="newGameBtn" class="new-game-btn">NEW GAME</button>
-      
-      <button id="statsBtn" class="icon-btn" aria-label="Statistics">
-        📊
-      </button>
-      
-      <button id="settingsBtn" class="icon-btn settings-icon" aria-label="Settings">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
-          <path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/>
-        </svg>
-      </button>
-    </div>
-
-    <div id="overlay" class="overlay hidden" aria-hidden="true">
-      <div class="overlay-card">
-        <div id="overlayMessage" class="overlay-message"></div>
-        <div class="overlay-actions">
-          <button id="overlayNew" class="btn primary">Play Again</button>
+      <div class="dashboard-footer">
+        <div class="current-streak" id="dashboardStreak">
+          Current Streak: <span id="streakCount">0</span> 🔥
         </div>
       </div>
     </div>
+  </div>
 
-    <!-- Settings Modal -->
-    <div id="settingsModal" class="modal hidden" aria-hidden="true">
-      <div class="modal-content">
-        <h2>Settings</h2>
-        
-        <div class="modal-section">
-          <label>Game Mode:
-            <select id="gameMode">
-              <option value="single">Single Player vs AI</option>
-              <option value="multiplayer">Multiplayer vs Friend</option>
-            </select>
-          </label>
+  <!-- Game Screen -->
+  <div id="gameScreen" class="screen hidden">
+    <div class="app">
+      <header class="topbar">
+        <div class="player-info">
+          <div class="player-avatar">
+            <img src="assets/avatars/male-avatar.png" alt="You" class="avatar-image">
+            <div class="avatar-fallback">♂</div>
+          </div>
+          <div class="player-name">You</div>
+          <div class="win-counter">Wins: <span id="playerWins" class="win-count">0</span></div>
+          <div class="player-disk-indicator player-color"></div>
         </div>
+        
+        <div class="game-status">
+          <div class="status-text" id="statusText">YOUR TURN</div>
+          <div class="game-mode-indicator" id="gameModeIndicator">vs AI</div>
+        </div>
+        
+        <div class="player-info opponent">
+          <div class="player-avatar">
+            <img src="assets/avatars/ai-avatar.png" alt="Computer" class="avatar-image">
+            <div class="avatar-fallback">AI</div>
+          </div>
+          <div class="player-name" id="opponentName">Computer</div>
+          <div class="win-counter">Wins: <span id="aiWins" class="win-count">0</span></div>
+          <div class="player-disk-indicator ai-color"></div>
+        </div>
+      </header>
 
-        <div class="modal-section">
-          <label>Difficulty:
-            <select id="difficulty">
-              <option value="easy" selected>Easy</option>
-              <option value="medium">Medium</option>
-              <option value="hard">Hard</option>
-            </select>
-          </label>
+      <main class="game-area">
+        <div class="board-wrap">
+          <div id="aiPulse" class="ai-pulse hidden" aria-hidden="true"></div>
+          <div id="board" class="board" aria-label="Connect Four board"></div>
         </div>
+      </main>
+
+      <div class="bottom-controls">
+        <button id="helpBtn" class="icon-btn help-icon" aria-label="How to Play">
+          <span>?</span>
+        </button>
         
-        <div class="modal-section">
-          <label>Theme:
-            <select id="themeSelect">
-              <option value="neon">Neon</option>
-              <option value="pastel">Pastel</option>
-              <option value="minimal">Minimal</option>
-            </select>
-          </label>
+        <button id="backToDashboardBtn" class="back-btn">BACK</button>
+        
+        <button id="statsBtn" class="icon-btn" aria-label="Statistics">
+          📊
+        </button>
+      </div>
+
+      <div id="overlay" class="overlay hidden" aria-hidden="true">
+        <div class="overlay-card">
+          <div id="overlayMessage" class="overlay-message"></div>
+          <div class="overlay-actions">
+            <button id="overlayNew" class="btn primary">Play Again</button>
+            <button id="overlayDashboard" class="btn">Dashboard</button>
+          </div>
         </div>
-        
-        <div class="modal-section">
-          <label>Your Avatar:
-            <select id="avatarSelect">
-              <option value="male">Male</option>
-              <option value="female">Female</option>
-            </select>
-          </label>
-        </div>
-        
-        <div class="modal-section">
-          <label class="toggle-label">
-            <span>Sound</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Settings Modal -->
+  <div id="settingsModal" class="modal hidden" aria-hidden="true">
+    <div class="modal-content">
+      <h2>Settings</h2>
+      
+      <div class="modal-section">
+        <label>Difficulty:
+          <select id="difficulty">
+            <option value="easy" selected>Easy</option>
+            <option value="medium">Medium</option>
+            <option value="hard">Hard</option>
+          </select>
+        </label>
+      </div>
+
+      <div class="modal-section">
+        <label>Your Avatar:
+          <select id="avatarSelect">
+            <option value="male">Male</option>
+            <option value="female">Female</option>
+          </select>
+        </label>
+      </div>
+      
+      <div class="modal-section">
+        <label>Theme:
+          <select id="themeSelect">
+            <option value="neon">Neon</option>
+            <option value="white">White</option>
+          </select>
+        </label>
+      </div>
+      
+      <div class="modal-section">
+        <label class="toggle-label">
+          <span>Sound</span>
+          <div class="toggle-container">
             <input type="checkbox" id="soundToggle" checked />
-            <span class="toggle-slider"></span>
-          </label>
-        </div>
-        
-        <div class="modal-actions">
-          <button id="closeSettingsBtn" class="btn primary">Close</button>
-        </div>
+            <span class="toggle-slider">
+              <span class="toggle-text-on">ON</span>
+              <span class="toggle-text-off">OFF</span>
+            </span>
+          </div>
+        </label>
+      </div>
+      
+      <div class="modal-actions">
+        <button id="closeSettingsBtn" class="btn primary">Close</button>
       </div>
     </div>
+  </div>
 
-    <!-- Help Modal -->
-    <div id="helpModal" class="modal hidden" aria-hidden="true">
-      <div class="modal-content">
-        <h2>How to Play</h2>
-        <div class="help-content">
-          <p><strong>Objective:</strong> Be the first to connect four of your discs in a row horizontally, vertically, or diagonally.</p>
-          
-          <p><strong>Game Modes:</strong></p>
-          <ul>
-            <li>🎮 <strong>Single Player:</strong> Play against AI with 3 difficulty levels</li>
-            <li>👥 <strong>Multiplayer:</strong> Play against a friend on the same device</li>
-          </ul>
-          
-          <p><strong>Gameplay:</strong></p>
-          <ul>
-            <li>Tap on any column to drop your disc</li>
-            <li>Discs fall to the lowest available space in the column</li>
-            <li>Take turns with your opponent</li>
-            <li>First to get four in a row wins!</li>
-          </ul>
-          
-          <p><strong>Features:</strong></p>
-          <ul>
-            <li>🔥 Win streaks for consecutive wins</li>
-            <li>🏆 22+ achievements across 4 difficulty tiers</li>
-            <li>📊 Track your statistics and progress</li>
-            <li>🎨 Multiple themes and avatars</li>
-            <li>👥 Single Player & Multiplayer modes</li>
-          </ul>
-        </div>
-        <div class="modal-actions">
-          <button id="closeHelpBtn" class="btn primary">Got It</button>
-        </div>
+  <!-- Help Modal -->
+  <div id="helpModal" class="modal hidden" aria-hidden="true">
+    <div class="modal-content">
+      <h2>How to Play</h2>
+      <div class="help-content">
+        <p><strong>Objective:</strong> Be the first to connect four of your discs in a row horizontally, vertically, or diagonally.</p>
+        
+        <p><strong>Game Modes:</strong></p>
+        <ul>
+          <li>🎮 <strong>Single Player:</strong> Play against AI with 3 difficulty levels</li>
+          <li>👥 <strong>Multiplayer:</strong> Play against a friend on the same device</li>
+        </ul>
+        
+        <p><strong>Gameplay:</strong></p>
+        <ul>
+          <li>Tap on any column to drop your disc</li>
+          <li>Discs fall to the lowest available space in the column</li>
+          <li>Take turns with your opponent</li>
+          <li>First to get four in a row wins!</li>
+        </ul>
+        
+        <p><strong>Features:</strong></p>
+        <ul>
+          <li>🔥 Win streaks for consecutive wins</li>
+          <li>🏆 22+ achievements across 4 difficulty tiers</li>
+          <li>📊 Track your statistics and progress</li>
+          <li>🎨 Multiple themes and avatars</li>
+          <li>👥 Single Player & Multiplayer modes</li>
+        </ul>
+      </div>
+      <div class="modal-actions">
+        <button id="closeHelpBtn" class="btn primary">Got It</button>
       </div>
     </div>
+  </div>
 
-    <!-- Stats Modal -->
-    <div id="statsModal" class="modal hidden" aria-hidden="true">
-      <div class="modal-content">
-        <h2>Game Statistics</h2>
-        <div class="stats-grid">
-          <div class="stat-card">
-            <div class="stat-value" id="statTotalGames">0</div>
-            <div class="stat-label">Total Games</div>
-          </div>
-          <div class="stat-card">
-            <div class="stat-value" id="statWinRate">0%</div>
-            <div class="stat-label">Win Rate</div>
-          </div>
-          <div class="stat-card">
-            <div class="stat-value" id="statCurrentStreak">0</div>
-            <div class="stat-label">Current Streak</div>
-          </div>
-          <div class="stat-card">
-            <div class="stat-value" id="statBestStreak">0</div>
-            <div class="stat-label">Best Streak</div>
-          </div>
+  <!-- Stats Modal -->
+  <div id="statsModal" class="modal hidden" aria-hidden="true">
+    <div class="modal-content">
+      <h2>Game Statistics</h2>
+      <div class="stats-grid">
+        <div class="stat-card">
+          <div class="stat-value" id="statTotalGames">0</div>
+          <div class="stat-label">Total Games</div>
         </div>
-        
-        <h3 style="margin-top: 24px;">Achievements</h3>
-        <div class="achievement-list" id="achievementList">
-          <!-- Achievements will be populated by JavaScript -->
+        <div class="stat-card">
+          <div class="stat-value" id="statWinRate">0%</div>
+          <div class="stat-label">Win Rate</div>
         </div>
-        
-        <div class="modal-actions">
-          <button id="closeStatsBtn" class="btn primary">Close</button>
+        <div class="stat-card">
+          <div class="stat-value" id="statCurrentStreak">0</div>
+          <div class="stat-label">Current Streak</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value" id="statBestStreak">0</div>
+          <div class="stat-label">Best Streak</div>
         </div>
       </div>
+      
+      <h3 style="margin-top: 24px;">Achievements</h3>
+      <div class="achievement-list" id="achievementList">
+        <!-- Achievements will be populated by JavaScript -->
+      </div>
+      
+      <div class="modal-actions">
+        <button id="closeStatsBtn" class="btn primary">Close</button>
+      </div>
     </div>
+  </div>
 
-    <!-- Multiplayer Modal -->
-    <div id="multiplayerModal" class="modal hidden" aria-hidden="true">
-      <div class="modal-content">
-        <h2>Multiplayer Game</h2>
-        <div class="multiplayer-content">
-          <p>Play against a friend on the same device!</p>
-          <div class="player-setup">
-            <div class="player-setup-item">
-              <label>Player 1 Name:</label>
-              <input type="text" id="player1Name" value="Player 1" maxlength="12">
-            </div>
-            <div class="player-setup-item">
-              <label>Player 2 Name:</label>
-              <input type="text" id="player2Name" value="Player 2" maxlength="12">
-            </div>
-          </div>
-          <div class="modal-actions">
-            <button id="startMultiplayerBtn" class="btn primary">Start Game</button>
-            <button id="cancelMultiplayerBtn" class="btn">Cancel</button>
-          </div>
+  <!-- Leaderboard Modal -->
+  <div id="leaderboardModal" class="modal hidden" aria-hidden="true">
+    <div class="modal-content">
+      <h2>Leaderboard</h2>
+      <div class="leaderboard-content">
+        <div class="leaderboard-tabs">
+          <button class="leaderboard-tab active" data-tab="single">Single Player</button>
+          <button class="leaderboard-tab" data-tab="multiplayer">Multiplayer</button>
         </div>
+        
+        <div id="singleLeaderboard" class="leaderboard-list active">
+          <!-- Single player leaderboard will be populated by JavaScript -->
+        </div>
+        
+        <div id="multiplayerLeaderboard" class="leaderboard-list">
+          <!-- Multiplayer leaderboard will be populated by JavaScript -->
+        </div>
+      </div>
+      <div class="modal-actions">
+        <button id="closeLeaderboardBtn" class="btn primary">Close</button>
       </div>
     </div>
   </div>
@@ -247,7 +275,7 @@
   <audio id="sfxPlace" src="sounds/drop.mp3" preload="auto"></audio>
   <audio id="sfxWin" src="sounds/win.mp3" preload="auto"></audio>
 
-  <!-- Your game logic (regular script) -->
+  <!-- Your game logic -->
   <script src="app.js"></script>
 
   <!-- OFFICIAL ESM SDK + READY CALL (fixes splash) -->
