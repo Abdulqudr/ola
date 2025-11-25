@@ -14,7 +14,7 @@
     "version": "next",
     "imageUrl": "https://ola-azure.vercel.app/hero.png",
     "button": {
-      "title": "PLAY CONNECT FOUR",
+      "title": "Play Connect Four",
       "action": {
         "type": "launch_miniapp",
         "name": "Four in a Row",
@@ -29,12 +29,36 @@
   <meta property="og:image" content="https://ola-azure.vercel.app/hero.png">
 </head>
 <body>
+  <!-- Login Screen -->
+  <div id="loginScreen" class="screen active">
+    <div class="dashboard">
+      <div class="dashboard-header">
+        <h1 class="dashboard-title">CONNECT 4</h1>
+        <p class="dashboard-subtitle">Sign in with Farcaster to play</p>
+      </div>
+      
+      <div class="dashboard-menu">
+        <button id="farcasterLoginBtn" class="dashboard-btn primary">
+          <span class="btn-icon">🔑</span>
+          Sign in with Farcaster
+        </button>
+      </div>
+      
+      <div class="dashboard-footer">
+        <p style="color: var(--muted); font-size: 14px; text-align: center;">
+          Connect your Farcaster account to start playing<br>and track your achievements
+        </p>
+      </div>
+    </div>
+  </div>
+
   <!-- Dashboard Screen -->
-  <div id="dashboardScreen" class="screen active">
+  <div id="dashboardScreen" class="screen hidden">
     <div class="dashboard">
       <div class="dashboard-header">
         <h1 class="dashboard-title">CONNECT 4</h1>
         <p class="dashboard-subtitle">Think. Block. Connect. Win.</p>
+        <div id="userInfo" style="color: var(--accent); font-size: 14px; margin-top: 8px;"></div>
       </div>
       
       <div class="dashboard-menu">
@@ -169,6 +193,12 @@
             </span>
           </div>
         </label>
+      </div>
+
+      <div class="modal-section">
+        <button id="logoutBtn" class="btn" style="width: 100%; margin-top: 16px; background: rgba(255,0,0,0.1); border-color: rgba(255,0,0,0.3); color: #ff6b6b;">
+          🚪 Sign Out
+        </button>
       </div>
       
       <div class="modal-actions">
