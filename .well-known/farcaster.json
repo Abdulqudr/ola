@@ -13,7 +13,7 @@
     "homeUrl": "https://ola-azure.vercel.app/",
     "iconUrl": "https://ola-azure.vercel.app/icon.png",
     "imageUrl": "https://ola-azure.vercel.app/hero.png",
-    "splashImageUrl": "https://ola-azure.vercel.app/icon.png",
+    "splashImageUrl": "",
     "splashBackgroundColor": "#454B7F",
     "subtitle": "The Ultimate Connect Challenge",
     "description": "Think ahead, outsmart your opponent, and be the first to connect four pieces in any direction",
