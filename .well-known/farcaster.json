@@ -6,23 +6,23 @@
   },
   "frame": {
     "version": "vNext",
-    "image": "https://ola-azure.vercel.app/hero.png",
+    "image": "abdulqudr-base.vercel.app/hero.png",
     "button": {
       "title": "Play Connect Four",
       "action": {
         "type": "launch_miniapp",
         "name": "Four in a Row",
-        "url": "https://ola-azure.vercel.app"
+        "url": "abdulqudr-base.vercel.app"
       }
     }
   },
   "miniapp": {
     "version": "1",
     "name": "CONNECT 4",
-    "homeUrl": "https://ola-azure.vercel.app/",
-    "iconUrl": "https://ola-azure.vercel.app/icon.png",
-    "imageUrl": "https://ola-azure.vercel.app/hero.png",
-    "splashImageUrl": "https://ola-azure.vercel.app/icon.png",
+    "homeUrl": "abdulqudr-base.vercel.app/",
+    "iconUrl": "abdulqudr-base.vercel.app/icon.png",
+    "imageUrl": "abdulqudr-base.vercel.app/hero.png",
+    "splashImageUrl": "abdulqudr-base.vercel.app/icon.png",
     "splashBackgroundColor": "#454B7F",
     "subtitle": "The Ultimate Connect Challenge",
     "description": "Think ahead, outsmart your opponent, and be the first to connect four pieces in any direction",
@@ -31,11 +31,11 @@
     ],
     "primaryCategory": "games",
     "tags": ["puzzle", "strategy", "colors", "game", "fun"],
-    "heroImageUrl": "https://ola-azure.vercel.app/hero.png",
+    "heroImageUrl": "abdulqudr-base.vercel.app/hero.png",
     "tagline": "Think. Block. Connect. Win.",
     "ogTitle": "FOUR IN A ROW",
     "ogDescription": "Think ahead, outsmart your opponent, and be the first to connect four pieces in any direction",
-    "ogImageUrl": "https://ola-azure.vercel.app/icon.png",
+    "ogImageUrl": "abdulqudr-base.vercel.app/icon.png",
     "noindex": false
   }
 }
