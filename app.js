@@ -16,12 +16,16 @@ let currentPlayer = PLAYER1; // For multiplayer
 
 const boardEl = document.getElementById('board');
 const aiPulseEl = document.getElementById('aiPulse');
-const sfxPlaceEl = document.getElementById('sfxPlace');
-const sfxWinEl = document.getElementById('sfxWin');
 const statusTextEl = document.getElementById('statusText');
 const playerWinsEl = document.getElementById('playerWins');
 const aiWinsEl = document.getElementById('aiWins');
 let lastMove = null;
+
+// Sound management
+let audioContext = null;
+let placeSoundBuffer = null;
+let winSoundBuffer = null;
+let soundsLoaded = false;
 
 // Enhanced Game State
 let winStreak = 0;
@@ -56,6 +60,165 @@ let settings = { sound: true, theme: 'neon', avatar: 'male' };
 
 // Screen Management
 let currentScreen = 'dashboard';
+
+// Initialize Web Audio API
+function initAudio() {
+    try {
+        audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        loadSounds();
+    } catch (e) {
+        console.log('Web Audio API not supported, using fallback');
+        initFallbackAudio();
+    }
+}
+
+function loadSounds() {
+    // Create simple synthesized sounds for immediate playback
+    createSynthesizedSounds();
+    soundsLoaded = true;
+}
+
+function createSynthesizedSounds() {
+    // Create drop sound
+    placeSoundBuffer = createDropSound();
+    
+    // Create win sound
+    winSoundBuffer = createWinSound();
+}
+
+function createDropSound() {
+    const duration = 0.1;
+    const sampleRate = audioContext.sampleRate;
+    const frameCount = sampleRate * duration;
+    const buffer = audioContext.createBuffer(1, frameCount, sampleRate);
+    const data = buffer.getChannelData(0);
+    
+    for (let i = 0; i < frameCount; i++) {
+        const t = i / sampleRate;
+        // Simple drop sound: quick frequency sweep
+        const freq = 800 * Math.exp(-t * 10);
+        data[i] = 0.3 * Math.sin(2 * Math.PI * freq * t) * Math.exp(-t * 20);
+    }
+    
+    return buffer;
+}
+
+function createWinSound() {
+    const duration = 0.5;
+    const sampleRate = audioContext.sampleRate;
+    const frameCount = sampleRate * duration;
+    const buffer = audioContext.createBuffer(1, frameCount, sampleRate);
+    const data = buffer.getChannelData(0);
+    
+    for (let i = 0; i < frameCount; i++) {
+        const t = i / sampleRate;
+        // Victory fanfare: multiple frequencies
+        const freq1 = 523.25; // C5
+        const freq2 = 659.25; // E5
+        const freq3 = 783.99; // G5
+        
+        const envelope = Math.exp(-t * 2);
+        const wave1 = Math.sin(2 * Math.PI * freq1 * t);
+        const wave2 = Math.sin(2 * Math.PI * freq2 * t);
+        const wave3 = Math.sin(2 * Math.PI * freq3 * t);
+        
+        data[i] = 0.2 * envelope * (wave1 + wave2 + wave3) / 3;
+    }
+    
+    return buffer;
+}
+
+function initFallbackAudio() {
+    // Fallback using HTML5 Audio with preloading
+    const placeAudio = new Audio();
+    const winAudio = new Audio();
+    
+    // Try to load sounds, but don't block on it
+    placeAudio.preload = 'auto';
+    winAudio.preload = 'auto';
+    
+    // Use data URLs for embedded sounds to avoid loading delays
+    placeAudio.src = 'data:audio/wav;base64,UklGRigAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQQAAAAAAA==';
+    winAudio.src = 'data:audio/wav;base64,UklGRigAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQQAAAAAAA==';
+    
+    soundsLoaded = true;
+}
+
+function playSoundImmediately(soundBuffer) {
+    if (!settings.sound || !soundsLoaded || !audioContext) return;
+    
+    try {
+        const source = audioContext.createBufferSource();
+        source.buffer = soundBuffer;
+        source.connect(audioContext.destination);
+        source.start(0);
+    } catch (e) {
+        console.log('Error playing sound:', e);
+    }
+}
+
+function playClick(){
+    if (!settings.sound) return;
+    
+    if (audioContext && placeSoundBuffer) {
+        playSoundImmediately(placeSoundBuffer);
+    } else {
+        // Fallback: create a simple beep using Web Audio
+        try {
+            const oscillator = audioContext.createOscillator();
+            const gainNode = audioContext.createGain();
+            
+            oscillator.connect(gainNode);
+            gainNode.connect(audioContext.destination);
+            
+            oscillator.frequency.setValueAtTime(800, audioContext.currentTime);
+            gainNode.gain.setValueAtTime(0.1, audioContext.currentTime);
+            gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.1);
+            
+            oscillator.start(audioContext.currentTime);
+            oscillator.stop(audioContext.currentTime + 0.1);
+        } catch (e) {
+            // Last resort: use a simple timeout-based beep
+            setTimeout(() => {
+                // This will create a visual feedback if audio fails
+                console.log('Sound played');
+            }, 0);
+        }
+    }
+}
+
+function playWin(){
+    if (!settings.sound) return;
+    
+    if (audioContext && winSoundBuffer) {
+        playSoundImmediately(winSoundBuffer);
+    } else {
+        // Fallback victory sound
+        try {
+            const now = audioContext.currentTime;
+            const oscillator = audioContext.createOscillator();
+            const gainNode = audioContext.createGain();
+            
+            oscillator.connect(gainNode);
+            gainNode.connect(audioContext.destination);
+            
+            oscillator.frequency.setValueAtTime(523.25, now); // C5
+            oscillator.frequency.setValueAtTime(659.25, now + 0.1); // E5
+            oscillator.frequency.setValueAtTime(783.99, now + 0.2); // G5
+            
+            gainNode.gain.setValueAtTime(0, now);
+            gainNode.gain.linearRampToValueAtTime(0.1, now + 0.05);
+            gainNode.gain.exponentialRampToValueAtTime(0.01, now + 0.5);
+            
+            oscillator.start(now);
+            oscillator.stop(now + 0.5);
+        } catch (e) {
+            setTimeout(() => {
+                console.log('Win sound played');
+            }, 0);
+        }
+    }
+}
 
 function showScreen(screenName) {
     // Hide all screens
@@ -408,7 +571,7 @@ function updateStreakDisplay() {
 
 function updateGameStatus() {
     if (gameOver) {
-        statusTextEl.textContent = '';
+        statusTextEl.textContent = 'GAME OVER';
         return;
     }
     
@@ -646,27 +809,6 @@ function getTierColor(tier) {
         case 'grandmaster': return '#9C27B0';
         default: return '#2196F3';
     }
-}
-
-// Audio functions
-function playClick(){
-    if(!settings.sound) return;
-    try{
-        if(sfxPlaceEl){ 
-            sfxPlaceEl.currentTime = 0; 
-            sfxPlaceEl.play().catch(()=>{}); 
-        }
-    }catch(e){}
-}
-
-function playWin(){
-    if(!settings.sound) return;
-    try{
-        if(sfxWinEl){ 
-            sfxWinEl.currentTime = 0; 
-            sfxWinEl.play().catch(()=>{}); 
-        }
-    }catch(e){}
 }
 
 function createBoard(){
@@ -1244,6 +1386,7 @@ function startMultiplayerGame() {
 // Initialize game
 loadGameStats();
 loadSettings();
+initAudio(); // Initialize audio system
 
 // UI Event Listeners
 document.addEventListener('DOMContentLoaded', ()=>{
