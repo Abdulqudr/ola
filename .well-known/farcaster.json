@@ -4,6 +4,9 @@
     "payload": "eyJkb21haW4iOiJvbGEtYXp1cmUudmVyY2VsLmFwcCJ9",
     "signature": "4mXsqMcHkWza6SFykNMMNockmFdcrD4l1Se8hkMpDHZF+ylgMHOF8ri8RjTqCM0GKQ2BWhUWk8jKgYKkf3jOdhw="
   },
+  "baseBuilder": {
+    "ownerAddress": "0xe1Bd3D122995a3d3A253F564c1fD54d18407A657"
+  },
   "frame": {
     "version": "vNext",
     "image": "abdulqudr-base.vercel.app/hero.png",
