@@ -4,8 +4,17 @@
     "payload": "eyJkb21haW4iOiJvbGEtYXp1cmUudmVyY2VsLmFwcCJ9",
     "signature": "4mXsqMcHkWza6SFykNMMNockmFdcrD4l1Se8hkMpDHZF+ylgMHOF8ri8RjTqCM0GKQ2BWhUWk8jKgYKkf3jOdhw="
   },
-  "baseBuilder": {
-    "ownerAddress": "0xe1Bd3D122995a3d3A253F564c1fD54d18407A657"
+  "frame": {
+    "version": "vNext",
+    "image": "https://ola-azure.vercel.app/hero.png",
+    "button": {
+      "title": "Play Connect Four",
+      "action": {
+        "type": "launch_miniapp",
+        "name": "Four in a Row",
+        "url": "https://ola-azure.vercel.app"
+      }
+    }
   },
   "miniapp": {
     "version": "1",
@@ -13,8 +22,8 @@
     "homeUrl": "https://ola-azure.vercel.app/",
     "iconUrl": "https://ola-azure.vercel.app/icon.png",
     "imageUrl": "https://ola-azure.vercel.app/hero.png",
-    "splashImageUrl": "https://ola-azure.vercel.app/hero.png",
-    "splashBackgroundColor": "#000718",
+    "splashImageUrl": "https://ola-azure.vercel.app/icon.png",
+    "splashBackgroundColor": "#454B7F",
     "subtitle": "The Ultimate Connect Challenge",
     "description": "Think ahead, outsmart your opponent, and be the first to connect four pieces in any direction",
     "screenshotUrls": [
