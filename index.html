@@ -9,7 +9,7 @@
   <!-- Mini App Discovery -->
   <meta property="fc:miniapp" content="https://ola-azure.vercel.app/.well-known/farcaster.json">
 
-  <!-- PERFECT EMBED CARD (exact format from docs/friend example) -->
+  <!-- PERFECT EMBED CARD -->
   <meta name="fc:miniapp" content='{
     "version": "next",
     "imageUrl": "https://ola-azure.vercel.app/hero.png",
@@ -23,42 +23,18 @@
     }
   }' />
 
-  <!-- Fallback Open Graph (for Twitter/Discord) -->
+  <!-- Fallback Open Graph -->
   <meta property="og:title" content="Four in a Row">
   <meta property="og:description" content="Beat the AI · streaks · achievements · multiplayer">
   <meta property="og:image" content="https://ola-azure.vercel.app/hero.png">
 </head>
 <body>
-  <!-- Login Screen -->
-  <div id="loginScreen" class="screen active">
-    <div class="dashboard">
-      <div class="dashboard-header">
-        <h1 class="dashboard-title">CONNECT 4</h1>
-        <p class="dashboard-subtitle">Sign in with Farcaster to play</p>
-      </div>
-      
-      <div class="dashboard-menu">
-        <button id="farcasterLoginBtn" class="dashboard-btn primary">
-          <span class="btn-icon">🔑</span>
-          Sign in with Farcaster
-        </button>
-      </div>
-      
-      <div class="dashboard-footer">
-        <p style="color: var(--muted); font-size: 14px; text-align: center;">
-          Connect your Farcaster account to start playing<br>and track your achievements
-        </p>
-      </div>
-    </div>
-  </div>
-
   <!-- Dashboard Screen -->
-  <div id="dashboardScreen" class="screen hidden">
+  <div id="dashboardScreen" class="screen active">
     <div class="dashboard">
       <div class="dashboard-header">
         <h1 class="dashboard-title">CONNECT 4</h1>
         <p class="dashboard-subtitle">Think. Block. Connect. Win.</p>
-        <div id="userInfo" style="color: var(--accent); font-size: 14px; margin-top: 8px;"></div>
       </div>
       
       <div class="dashboard-menu">
@@ -77,6 +53,25 @@
         <button id="dashboardSettingsBtn" class="dashboard-btn">
           <span class="btn-icon">⚙️</span>
           Settings
+        </button>
+      </div>
+
+      <!-- Authentication Section -->
+      <div class="auth-section" style="margin-top: 30px; text-align: center; width: 100%; max-width: 320px;">
+        <div id="authStatus" class="auth-status hidden" style="background: var(--card-bg); padding: 16px; border-radius: 12px; border: 2px solid rgba(126, 224, 255, 0.3); margin-bottom: 12px;">
+          <div style="display: flex; align-items: center; justify-content: center; gap: 12px; margin-bottom: 12px;">
+            <div id="userAvatar" class="user-avatar" style="width: 40px; height: 40px; border-radius: 50%; background: linear-gradient(135deg, var(--accent), #3fd6ff); display: flex; align-items: center; justify-content: center; font-weight: bold; color: #042233; font-size: 16px;"></div>
+            <div style="text-align: left;">
+              <div id="userInfo" style="font-size: 14px; font-weight: 600; color: var(--text);"></div>
+              <div style="font-size: 12px; color: var(--muted);">Signed in with Farcaster</div>
+            </div>
+          </div>
+          <button id="signOutBtn" class="btn" style="font-size: 12px; padding: 6px 12px;">Sign Out</button>
+        </div>
+        
+        <button id="signInBtn" class="dashboard-btn" style="margin-top: 0;">
+          <span class="btn-icon">🔐</span>
+          Sign In with Farcaster
         </button>
       </div>
       
@@ -194,12 +189,6 @@
           </div>
         </label>
       </div>
-
-      <div class="modal-section">
-        <button id="logoutBtn" class="btn" style="width: 100%; margin-top: 16px; background: rgba(255,0,0,0.1); border-color: rgba(255,0,0,0.3); color: #ff6b6b;">
-          🚪 Sign Out
-        </button>
-      </div>
       
       <div class="modal-actions">
         <button id="closeSettingsBtn" class="btn primary">Close</button>
@@ -235,6 +224,7 @@
           <li>📊 Track your statistics and progress</li>
           <li>🎨 Multiple themes and avatars</li>
           <li>👥 Single Player & Multiplayer modes</li>
+          <li>🔐 Farcaster authentication</li>
         </ul>
       </div>
       <div class="modal-actions">
@@ -285,6 +275,7 @@
         <div class="leaderboard-tabs">
           <button class="leaderboard-tab active" data-tab="single">Single Player</button>
           <button class="leaderboard-tab" data-tab="multiplayer">Multiplayer</button>
+          <button class="leaderboard-tab" data-tab="farcaster">Farcaster</button>
         </div>
         
         <div id="singleLeaderboard" class="leaderboard-list active">
@@ -293,6 +284,10 @@
         
         <div id="multiplayerLeaderboard" class="leaderboard-list">
           <!-- Multiplayer leaderboard will be populated by JavaScript -->
+        </div>
+
+        <div id="farcasterLeaderboard" class="leaderboard-list">
+          <!-- Farcaster leaderboard will be populated by JavaScript -->
         </div>
       </div>
       <div class="modal-actions">
@@ -308,9 +303,12 @@
   <!-- Your game logic -->
   <script src="app.js"></script>
 
-  <!-- OFFICIAL ESM SDK + READY CALL (fixes splash) -->
+  <!-- Farcaster Mini App SDK -->
   <script type="module">
     import { sdk } from 'https://esm.sh/@farcaster/miniapp-sdk';
+
+    // Make SDK available globally
+    window.sdk = sdk;
 
     // Fresh start for new players
     if (!localStorage.getItem('connect4_visited')) {
@@ -318,13 +316,22 @@
       localStorage.setItem('connect4_visited', 'true');
     }
 
-    // Dismiss splash screen after app loads
+    // Initialize when SDK is ready
     window.addEventListener('load', async () => {
       try {
         await sdk.actions.ready();
         console.log('Mini App ready — splash dismissed!');
+        
+        // Initialize game after SDK is ready
+        if (window.initGame) {
+          window.initGame();
+        }
       } catch (e) {
         console.log('Not in Mini App (desktop mode)');
+        // Still initialize game in desktop mode
+        if (window.initGame) {
+          window.initGame();
+        }
       }
     });
   </script>
