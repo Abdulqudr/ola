@@ -1,33 +1,26 @@
-/* Enhanced Connect Four with Dashboard, Multiplayer, Themes & Farcaster Auth */
+/* Enhanced Connect Four with Dashboard, Multiplayer & Themes */
 const COLUMNS = 7;
 const ROWS = 6;
 const PLAYER = 1;
 const AI = 2;
 const PLAYER1 = 1;
-const PLAYER2 = 3;
+const PLAYER2 = 3; // Different value for multiplayer
 
 let board = null;
 let isPlayerTurn = true;
 let gameOver = false;
 let difficulty = 'easy';
 let currentWinPositions = null;
-let gameMode = 'single';
-let currentPlayer = PLAYER1;
+let gameMode = 'single'; // 'single' or 'multiplayer'
+let currentPlayer = PLAYER1; // For multiplayer
 
-// Element references with safe fallbacks
-function getElement(id) {
-    const el = document.getElementById(id);
-    if (!el) console.warn(`Element #${id} not found`);
-    return el;
-}
-
-const boardEl = getElement('board');
-const aiPulseEl = getElement('aiPulse');
-const sfxPlaceEl = getElement('sfxPlace');
-const sfxWinEl = getElement('sfxWin');
-const statusTextEl = getElement('statusText');
-const playerWinsEl = getElement('playerWins');
-const aiWinsEl = getElement('aiWins');
+const boardEl = document.getElementById('board');
+const aiPulseEl = document.getElementById('aiPulse');
+const sfxPlaceEl = document.getElementById('sfxPlace');
+const sfxWinEl = document.getElementById('sfxWin');
+const statusTextEl = document.getElementById('statusText');
+const playerWinsEl = document.getElementById('playerWins');
+const aiWinsEl = document.getElementById('aiWins');
 let lastMove = null;
 
 // Enhanced Game State
@@ -45,223 +38,26 @@ let hardModeWins = 0;
 let mediumModeWins = 0;
 let flawlessWins = 0;
 
-// Multiplayer state
+// Multiplayer state (session only - resets on back button)
 let multiplayerSessionStats = {
     player1: { name: "Player 1", wins: 0 },
     player2: { name: "Player 2", wins: 0 }
 };
 
-// Permanent multiplayer stats
+// Permanent multiplayer stats (saved)
 let multiplayerStats = {
     player1: { name: "Player 1", wins: 0, achievements: 0 },
     player2: { name: "Player 2", wins: 0, achievements: 0 }
 };
 
-// Farcaster authentication state
-let userToken = null;
-let userData = null;
-let farcasterUsers = {};
-
-// Settings
+// settings
 const SETTINGS_KEY = 'fourinrow_settings_v3';
 let settings = { sound: true, theme: 'neon', avatar: 'male' };
 
 // Screen Management
 let currentScreen = 'dashboard';
 
-// Authentication Functions
-async function signIn() {
-    try {
-        console.log('Starting Farcaster authentication...');
-        
-        if (!window.sdk) {
-            throw new Error('Farcaster SDK not available');
-        }
-
-        const { token } = await window.sdk.quickAuth.getToken();
-        userToken = token;
-        
-        // Verify token with backend (using mock for now)
-        const authSuccess = await verifyToken(token);
-        
-        if (authSuccess) {
-            // Store user data
-            const fid = extractFidFromToken(token);
-            userData = { 
-                fid: fid,
-                username: `user_${fid}`,
-                displayName: `Player ${fid}`
-            };
-            
-            // Save to localStorage
-            localStorage.setItem('farcasterUser', JSON.stringify({
-                token: userToken,
-                fid: userData.fid,
-                username: userData.username,
-                timestamp: Date.now()
-            }));
-
-            // Add to farcaster users if not exists
-            if (!farcasterUsers[fid]) {
-                farcasterUsers[fid] = {
-                    fid: fid,
-                    username: userData.username,
-                    displayName: userData.displayName,
-                    wins: 0,
-                    achievements: 0,
-                    bestStreak: 0
-                };
-                saveFarcasterUsers();
-            }
-
-            updateAuthUI();
-            showAchievementToast({
-                name: "Welcome!",
-                desc: "Successfully signed in with Farcaster",
-                emoji: "🔐",
-                tier: "easy"
-            });
-            
-            console.log('Farcaster authentication successful:', userData);
-            updateLeaderboardDisplay();
-        } else {
-            throw new Error('Token verification failed');
-        }
-    } catch (error) {
-        console.error('Farcaster authentication failed:', error);
-        showError('Failed to sign in with Farcaster. Please try again.');
-    }
-}
-
-function signOut() {
-    userToken = null;
-    userData = null;
-    localStorage.removeItem('farcasterUser');
-    updateAuthUI();
-    showAchievementToast({
-        name: "Signed Out",
-        desc: "You have been signed out",
-        emoji: "👋",
-        tier: "easy"
-    });
-}
-
-function loadUserData() {
-    try {
-        const saved = localStorage.getItem('farcasterUser');
-        if (saved) {
-            const user = JSON.parse(saved);
-            // Check if token is still valid (less than 1 hour old)
-            if (Date.now() - user.timestamp < 3600000) {
-                userToken = user.token;
-                userData = { 
-                    fid: user.fid,
-                    username: user.username,
-                    displayName: `Player ${user.fid}`
-                };
-                return true;
-            }
-        }
-    } catch (e) {
-        console.log('Error loading user data:', e);
-    }
-    return false;
-}
-
-function updateAuthUI() {
-    const authStatus = getElement('authStatus');
-    const signInBtn = getElement('signInBtn');
-    const userInfo = getElement('userInfo');
-    const userAvatar = getElement('userAvatar');
-    
-    if (!authStatus || !signInBtn || !userInfo || !userAvatar) return;
-    
-    if (userData) {
-        // User is signed in
-        authStatus.classList.remove('hidden');
-        signInBtn.classList.add('hidden');
-        userInfo.textContent = `FID: ${userData.fid}`;
-        userAvatar.textContent = userData.fid.toString().charAt(0);
-        
-        // Update player name in game if screen is active
-        if (currentScreen === 'game' && gameMode === 'single') {
-            const playerNameEl = document.querySelector('.player-info .player-name');
-            if (playerNameEl) playerNameEl.textContent = userData.displayName;
-        }
-    } else {
-        // User is signed out
-        authStatus.classList.add('hidden');
-        signInBtn.classList.remove('hidden');
-    }
-}
-
-// Mock token verification (replace with real API call)
-async function verifyToken(token) {
-    return new Promise(resolve => {
-        setTimeout(() => resolve(true), 500);
-    });
-}
-
-function extractFidFromToken(token) {
-    // Mock FID extraction - in real app, decode JWT
-    return Math.floor(1000 + Math.random() * 9000);
-}
-
-function showError(message) {
-    const toast = document.createElement('div');
-    toast.className = 'achievement-toast';
-    toast.style.background = 'linear-gradient(45deg, #ff6b6b, #ff8e53)';
-    toast.innerHTML = `
-        <div class="achievement-emoji">❌</div>
-        <div class="achievement-title">Error</div>
-        <div class="achievement-desc">${message}</div>
-    `;
-    document.body.appendChild(toast);
-    setTimeout(() => toast.remove(), 3000);
-}
-
-// Farcaster users management
-function loadFarcasterUsers() {
-    try {
-        const users = localStorage.getItem('farcasterUsers');
-        if (users) {
-            farcasterUsers = JSON.parse(users);
-        }
-    } catch (e) {
-        console.log('Error loading farcaster users:', e);
-        farcasterUsers = {};
-    }
-}
-
-function saveFarcasterUsers() {
-    try {
-        localStorage.setItem('farcasterUsers', JSON.stringify(farcasterUsers));
-    } catch (e) {
-        console.log('Error saving farcaster users:', e);
-    }
-}
-
-function updateFarcasterUserStats(won = false) {
-    if (!userData) return;
-    
-    const fid = userData.fid;
-    if (!farcasterUsers[fid]) return;
-    
-    if (won) {
-        farcasterUsers[fid].wins++;
-        if (winStreak > farcasterUsers[fid].bestStreak) {
-            farcasterUsers[fid].bestStreak = winStreak;
-        }
-        farcasterUsers[fid].achievements = getAchievementsCount();
-    }
-    
-    saveFarcasterUsers();
-}
-
-// Screen Management
 function showScreen(screenName) {
-    console.log(`Switching to screen: ${screenName}`);
-    
     // Hide all screens
     document.querySelectorAll('.screen').forEach(screen => {
         screen.classList.remove('active');
@@ -273,24 +69,17 @@ function showScreen(screenName) {
     if (targetScreen) {
         targetScreen.classList.remove('hidden');
         targetScreen.classList.add('active');
-        
-        // Special handling for game screen
-        if (screenName === 'game') {
-            setTimeout(() => {
-                updateGameStatus();
-                updateWinCounters();
-                // Ensure board is properly sized and rendered
-                if (boardEl && board) {
-                    renderBoard();
-                }
-            }, 100);
-        }
     }
     
     currentScreen = screenName;
     
-    if (screenName === 'dashboard') {
+    // Update UI based on screen
+    if (screenName === 'game') {
+        updateGameStatus();
+        updateWinCounters();
+    } else if (screenName === 'dashboard') {
         updateDashboardStreak();
+        // Reset multiplayer session stats when returning to dashboard
         if (gameMode === 'multiplayer') {
             resetMultiplayerSession();
         }
@@ -304,8 +93,9 @@ function resetMultiplayerSession() {
     };
 }
 
-// Achievement Definitions
+// Enhanced Achievement Definitions with Difficulty Tiers
 const ACHIEVEMENTS = {
+    // 🟢 EASY ACHIEVEMENTS
     firstWin: { 
         name: "First Blood", 
         desc: "Win your first game", 
@@ -338,14 +128,8 @@ const ACHIEVEMENTS = {
         condition: (stats) => stats.easyWins >= 5,
         progress: (stats) => Math.min(stats.easyWins, 5) / 5
     },
-    farcasterUser: {
-        name: "Farcaster Connected",
-        desc: "Sign in with Farcaster account",
-        emoji: "🔐",
-        tier: "easy",
-        condition: (stats) => stats.hasFarcaster,
-        progress: (stats) => stats.hasFarcaster ? 1 : 0
-    },
+
+    // 🟡 MEDIUM ACHIEVEMENTS
     streak5: { 
         name: "Unstoppable!", 
         desc: "Win 5 games in a row", 
@@ -353,6 +137,146 @@ const ACHIEVEMENTS = {
         tier: "medium",
         condition: (stats) => stats.bestStreak >= 5,
         progress: (stats) => Math.min(stats.bestStreak, 5) / 5
+    },
+    totalWins50: { 
+        name: "Half Century", 
+        desc: "Win 50 total games", 
+        emoji: "🎯",
+        tier: "medium",
+        condition: (stats) => stats.totalWins >= 50,
+        progress: (stats) => Math.min(stats.totalWins, 50) / 50
+    },
+    mediumMaster: { 
+        name: "Strategic Mind", 
+        desc: "Win 10 games on Medium difficulty", 
+        emoji: "🧠",
+        tier: "medium",
+        condition: (stats) => stats.mediumWins >= 10,
+        progress: (stats) => Math.min(stats.mediumWins, 10) / 10
+    },
+    comeback: { 
+        name: "Against All Odds", 
+        desc: "Win from 3 disks behind", 
+        emoji: "🙏",
+        tier: "medium",
+        condition: (stats) => stats.comebackWins >= 1,
+        progress: (stats) => Math.min(stats.comebackWins, 1)
+    },
+    speedRunner: { 
+        name: "Speed Runner", 
+        desc: "Win in under 2 minutes", 
+        emoji: "⏱️",
+        tier: "medium",
+        condition: (stats) => stats.fastWins >= 1,
+        progress: (stats) => Math.min(stats.fastWins, 1)
+    },
+    perfectGame: { 
+        name: "Flawless Victory", 
+        desc: "Win without letting AI get 3 in a row", 
+        emoji: "💎",
+        tier: "medium",
+        condition: (stats) => stats.perfectWins >= 1,
+        progress: (stats) => Math.min(stats.perfectWins, 1)
+    },
+
+    // 🔴 HARD ACHIEVEMENTS
+    streak10: { 
+        name: "Legendary Streak", 
+        desc: "Win 10 games in a row", 
+        emoji: "🏆",
+        tier: "hard",
+        condition: (stats) => stats.bestStreak >= 10,
+        progress: (stats) => Math.min(stats.bestStreak, 10) / 10
+    },
+    totalWins100: { 
+        name: "Centurion", 
+        desc: "Win 100 total games", 
+        emoji: "💯",
+        tier: "hard",
+        condition: (stats) => stats.totalWins >= 100,
+        progress: (stats) => Math.min(stats.totalWins, 100) / 100
+    },
+    hardMaster: { 
+        name: "Grand Master", 
+        desc: "Win 25 games on Hard difficulty", 
+        emoji: "♟️",
+        tier: "hard",
+        condition: (stats) => stats.hardWins >= 25,
+        progress: (stats) => Math.min(stats.hardWins, 25) / 25
+    },
+    speedDemon: { 
+        name: "Speed Demon", 
+        desc: "Win in under 1 minute", 
+        emoji: "🚀",
+        tier: "hard",
+        condition: (stats) => stats.veryFastWins >= 1,
+        progress: (stats) => Math.min(stats.veryFastWins, 1)
+    },
+    perfectStreak: { 
+        name: "Perfectionist", 
+        desc: "Get 3 flawless wins in a row", 
+        emoji: "✨",
+        tier: "hard",
+        condition: (stats) => stats.flawlessStreak >= 3,
+        progress: (stats) => Math.min(stats.flawlessStreak, 3) / 3
+    },
+    comebackKing: { 
+        name: "Comeback King", 
+        desc: "Win from 4 disks behind", 
+        emoji: "👑",
+        tier: "hard",
+        condition: (stats) => stats.comebackKingWins >= 1,
+        progress: (stats) => Math.min(stats.comebackKingWins, 1)
+    },
+
+    // 🏅 GRANDMASTER ACHIEVEMENTS (Very Hard)
+    streak20: { 
+        name: "Godlike Streak", 
+        desc: "Win 20 games in a row", 
+        emoji: "🌠",
+        tier: "grandmaster",
+        condition: (stats) => stats.bestStreak >= 20,
+        progress: (stats) => Math.min(stats.bestStreak, 20) / 20
+    },
+    totalWins500: { 
+        name: "Veteran Player", 
+        desc: "Win 500 total games", 
+        emoji: "🎖️",
+        tier: "grandmaster",
+        condition: (stats) => stats.totalWins >= 500,
+        progress: (stats) => Math.min(stats.totalWins, 500) / 500
+    },
+    impossible: { 
+        name: "The Impossible", 
+        desc: "Win 50 games on Hard difficulty", 
+        emoji: "🏔️",
+        tier: "grandmaster",
+        condition: (stats) => stats.hardWins >= 50,
+        progress: (stats) => Math.min(stats.hardWins, 50) / 50
+    },
+    lightning: { 
+        name: "Lightning Fast", 
+        desc: "Win in under 30 seconds", 
+        emoji: "⚡",
+        tier: "grandmaster",
+        condition: (stats) => stats.lightningWins >= 1,
+        progress: (stats) => Math.min(stats.lightningWins, 1)
+    },
+    untouchable: { 
+        name: "Untouchable", 
+        desc: "Get 10 flawless wins", 
+        emoji: "🛡️",
+        tier: "grandmaster",
+        condition: (stats) => stats.flawlessWins >= 10,
+        progress: (stats) => Math.min(stats.flawlessWins, 10) / 10
+    },
+    ultimateComeback: { 
+        name: "Ultimate Comeback", 
+        desc: "Win when AI has 3 separate 3-in-a-rows", 
+        emoji: "🎪",
+        tier: "grandmaster",
+        condition: (stats) => stats.ultimateComebacks >= 1,
+        progress: (stats) => Math.min(stats.ultimateComebacks, 1)
     }
 };
 
@@ -374,6 +298,7 @@ function applyTheme(themeName) {
     document.documentElement.setAttribute('data-theme', themeName);
     settings.theme = themeName;
     saveSettings();
+    // Re-render board to update disk colors
     if (board) {
         renderBoard();
     }
@@ -394,9 +319,11 @@ function loadGameStats() {
         flawlessWins = stats.flawlessWins || 0;
         lastPlayedDate = stats.lastPlayedDate || null;
         
+        // Load permanent multiplayer stats
         const multiplayerData = JSON.parse(localStorage.getItem('four_multiplayerStats') || '{}');
         multiplayerStats = Object.assign(multiplayerStats, multiplayerData);
         
+        // Initialize missing achievements
         Object.keys(ACHIEVEMENTS).forEach(key => {
             if (achievements[key] === undefined) {
                 achievements[key] = { unlocked: false, progress: 0 };
@@ -450,20 +377,19 @@ function updateWinCounters() {
 }
 
 function updateDashboardStreak() {
-    const streakCountEl = getElement('streakCount');
+    const streakCountEl = document.getElementById('streakCount');
     if (streakCountEl) {
         streakCountEl.textContent = winStreak;
     }
 }
 
 function updateStreakDisplay() {
-    let streakEl = getElement('streakIndicator');
+    let streakEl = document.getElementById('streakIndicator');
     if (!streakEl) {
         streakEl = document.createElement('div');
         streakEl.id = 'streakIndicator';
         streakEl.className = 'streak-indicator hidden';
-        const appEl = document.querySelector('.app');
-        if (appEl) appEl.appendChild(streakEl);
+        document.querySelector('.app').appendChild(streakEl);
     }
     
     if (winStreak >= 3) {
@@ -481,8 +407,6 @@ function updateStreakDisplay() {
 }
 
 function updateGameStatus() {
-    if (!statusTextEl) return;
-    
     if (gameOver) {
         statusTextEl.textContent = '';
         return;
@@ -539,12 +463,11 @@ function getCurrentStats() {
         comebackWins,
         perfectWins,
         flawlessWins,
-        hasFarcaster: !!userData,
-        flawlessStreak: 0,
-        veryFastWins: 0,
-        lightningWins: 0,
-        comebackKingWins: 0,
-        ultimateComebacks: 0
+        flawlessStreak: 0, // You'd track this
+        veryFastWins: 0,   // You'd track this
+        lightningWins: 0,  // You'd track this
+        comebackKingWins: 0, // You'd track this
+        ultimateComebacks: 0 // You'd track this
     };
 }
 
@@ -556,6 +479,7 @@ function showAchievementToast(achievement) {
     const toast = document.createElement('div');
     toast.className = 'achievement-toast';
     
+    // Color code by tier
     let tierColor = '';
     switch(achievement.tier) {
         case 'easy': tierColor = '#4CAF50'; break;
@@ -582,16 +506,11 @@ function showAchievementToast(achievement) {
 }
 
 function updateStatsDisplay() {
-    const statTotalGames = getElement('statTotalGames');
-    const statWinRate = getElement('statWinRate');
-    const statCurrentStreak = getElement('statCurrentStreak');
-    const statBestStreak = getElement('statBestStreak');
-    
-    if (statTotalGames) statTotalGames.textContent = totalGames;
-    if (statWinRate) statWinRate.textContent = totalGames > 0 ? 
+    document.getElementById('statTotalGames').textContent = totalGames;
+    document.getElementById('statWinRate').textContent = totalGames > 0 ? 
         Math.round((playerWins / totalGames) * 100) + '%' : '0%';
-    if (statCurrentStreak) statCurrentStreak.textContent = winStreak;
-    if (statBestStreak) statBestStreak.textContent = bestStreak;
+    document.getElementById('statCurrentStreak').textContent = winStreak;
+    document.getElementById('statBestStreak').textContent = bestStreak;
     
     updateAchievementsList();
 }
@@ -599,11 +518,10 @@ function updateStatsDisplay() {
 function updateLeaderboardDisplay() {
     updateSinglePlayerLeaderboard();
     updateMultiplayerLeaderboard();
-    updateFarcasterLeaderboard();
 }
 
 function updateSinglePlayerLeaderboard() {
-    const singleLeaderboard = getElement('singleLeaderboard');
+    const singleLeaderboard = document.getElementById('singleLeaderboard');
     if (!singleLeaderboard) return;
     
     singleLeaderboard.innerHTML = '';
@@ -615,8 +533,8 @@ function updateSinglePlayerLeaderboard() {
     entryEl.innerHTML = `
         <div class="leaderboard-rank">#1</div>
         <div class="leaderboard-player">
-            <div class="leaderboard-avatar">${userData ? userData.fid.toString().charAt(0) : 'Y'}</div>
-            <div class="leaderboard-name">${userData ? `Player ${userData.fid}` : 'You'}</div>
+            <div class="leaderboard-avatar">Y</div>
+            <div class="leaderboard-name">You</div>
         </div>
         <div class="leaderboard-score">${playerWins} Wins</div>
         <div class="leaderboard-achievements">${achievementsCount} Achievements</div>
@@ -625,11 +543,12 @@ function updateSinglePlayerLeaderboard() {
 }
 
 function updateMultiplayerLeaderboard() {
-    const multiplayerLeaderboard = getElement('multiplayerLeaderboard');
+    const multiplayerLeaderboard = document.getElementById('multiplayerLeaderboard');
     if (!multiplayerLeaderboard) return;
     
     multiplayerLeaderboard.innerHTML = '';
     
+    // Create leaderboard entries sorted by wins
     const entries = [
         { 
             name: multiplayerStats.player1.name, 
@@ -642,6 +561,7 @@ function updateMultiplayerLeaderboard() {
             achievements: multiplayerStats.player2.achievements 
         }
     ].sort((a, b) => {
+        // Sort by wins first, then by achievements
         if (b.wins !== a.wins) {
             return b.wins - a.wins;
         }
@@ -664,57 +584,13 @@ function updateMultiplayerLeaderboard() {
     });
 }
 
-function updateFarcasterLeaderboard() {
-    const farcasterLeaderboard = getElement('farcasterLeaderboard');
-    if (!farcasterLeaderboard) return;
-    
-    farcasterLeaderboard.innerHTML = '';
-    
-    const entries = Object.values(farcasterUsers)
-        .sort((a, b) => {
-            if (b.wins !== a.wins) {
-                return b.wins - a.wins;
-            }
-            return b.bestStreak - a.bestStreak;
-        })
-        .slice(0, 10); // Top 10
-    
-    if (entries.length === 0) {
-        const emptyEl = document.createElement('div');
-        emptyEl.className = 'leaderboard-entry';
-        emptyEl.innerHTML = `
-            <div style="text-align: center; color: var(--muted); padding: 20px;">
-                No Farcaster users yet. Sign in to appear here!
-            </div>
-        `;
-        farcasterLeaderboard.appendChild(emptyEl);
-        return;
-    }
-    
-    entries.forEach((entry, index) => {
-        const entryEl = document.createElement('div');
-        entryEl.className = 'leaderboard-entry';
-        const isCurrentUser = userData && userData.fid === entry.fid;
-        entryEl.style.border = isCurrentUser ? '2px solid var(--accent)' : '1px solid rgba(255,255,255,0.05)';
-        entryEl.innerHTML = `
-            <div class="leaderboard-rank">#${index + 1}</div>
-            <div class="leaderboard-player">
-                <div class="leaderboard-avatar" style="background: ${isCurrentUser ? 'linear-gradient(135deg, var(--accent), #3fd6ff)' : 'linear-gradient(135deg, #667eea, #764ba2)'}">${entry.displayName?.charAt(0) || entry.username?.charAt(0) || 'U'}</div>
-                <div class="leaderboard-name">${entry.displayName || entry.username} ${isCurrentUser ? ' (You)' : ''}</div>
-            </div>
-            <div class="leaderboard-score">${entry.wins} Wins</div>
-            <div class="leaderboard-achievements">${entry.achievements} Achievements</div>
-        `;
-        farcasterLeaderboard.appendChild(entryEl);
-    });
-}
-
 function updateAchievementsList() {
-    const listEl = getElement('achievementList');
+    const listEl = document.getElementById('achievementList');
     if (!listEl) return;
     
     listEl.innerHTML = '';
     
+    // Group achievements by tier
     const tiers = {
         easy: [],
         medium: [],
@@ -727,6 +603,7 @@ function updateAchievementsList() {
         tiers[achievement.tier].push({key, achievement});
     });
     
+    // Display by tier
     Object.keys(tiers).forEach(tier => {
         if (tiers[tier].length > 0) {
             const tierHeader = document.createElement('h4');
@@ -792,21 +669,13 @@ function playWin(){
     }catch(e){}
 }
 
-// Game Board Functions
 function createBoard(){
-    console.log('Creating new game board...');
     board = Array.from({length:ROWS},()=>Array.from({length:COLUMNS},()=>0));
     gameStartTime = Date.now();
 }
 
 function renderBoard(){
-    if (!boardEl) {
-        console.error('Cannot render: board element not found');
-        return;
-    }
-    
     boardEl.innerHTML = '';
-    
     for(let r=0;r<ROWS;r++){
         for(let c=0;c<COLUMNS;c++){
             const cell = document.createElement('div');
@@ -949,14 +818,14 @@ function winningPositions(b, piece){
 }
 
 function showOverlay(message){
-    const overlayEl = getElement('overlay');
-    const overlayMessageEl = getElement('overlayMessage');
+    const overlayEl = document.getElementById('overlay');
+    const overlayMessageEl = document.getElementById('overlayMessage');
     if(overlayMessageEl) overlayMessageEl.textContent = message;
-    if(overlayEl) overlayEl.classList.remove('hidden');
+    if(overlayEl){ overlayEl.classList.remove('hidden'); }
 }
 
 function hideOverlay(){
-    const overlayEl = getElement('overlay');
+    const overlayEl = document.getElementById('overlay');
     if(overlayEl) overlayEl.classList.add('hidden');
 }
 
@@ -1027,12 +896,14 @@ function handlePlayerMove(col){
             const winnerName = currentPlayer === PLAYER1 ? multiplayerSessionStats.player1.name : multiplayerSessionStats.player2.name;
             winMessage = `${winnerName} Wins!`;
             
+            // Update session stats
             if (currentPlayer === PLAYER1) {
                 multiplayerSessionStats.player1.wins++;
             } else {
                 multiplayerSessionStats.player2.wins++;
             }
             
+            // Update permanent stats
             if (currentPlayer === PLAYER1) {
                 multiplayerStats.player1.wins++;
             } else {
@@ -1040,13 +911,16 @@ function handlePlayerMove(col){
             }
             saveGameStats();
         } else {
+            // Calculate game time for speed achievements
             const gameTime = (Date.now() - gameStartTime) / 1000;
             winMessage = 'You win!';
             
+            // Special win messages for fast wins
             if (gameTime < 30) winMessage = 'Lightning Fast! ⚡';
             else if (gameTime < 60) winMessage = 'Speed Demon! 🚀';
             else if (gameTime < 120) winMessage = 'Speed Runner! ⏱️';
             
+            // Update stats for win
             playerWins++;
             winStreak++;
             if (winStreak > bestStreak) {
@@ -1054,13 +928,12 @@ function handlePlayerMove(col){
             }
             totalGames++;
             
+            // Track difficulty wins
             if (difficulty === 'medium') mediumModeWins++;
             if (difficulty === 'hard') hardModeWins++;
             
-            if (Math.random() > 0.7) perfectWins++;
-            
-            // Update Farcaster user stats if signed in
-            updateFarcasterUserStats(true);
+            // Track perfect wins (simplified - you'd add proper detection)
+            if (Math.random() > 0.7) perfectWins++; // Simulate some perfect wins
             
             saveGameStats();
             checkAchievements();
@@ -1086,11 +959,12 @@ function handlePlayerMove(col){
         return; 
     }
     
+    // Switch turns
     if (gameMode === 'multiplayer') {
         currentPlayer = currentPlayer === PLAYER1 ? PLAYER2 : PLAYER1;
     } else {
         isPlayerTurn = false;
-        if (aiPulseEl) aiPulseEl.classList.add('pulsing');
+        aiPulseEl && aiPulseEl.classList.add('pulsing');
         setTimeout(()=>computerMove(), 800);
     }
     
@@ -1106,7 +980,7 @@ function computerMove(){
     dropPiece(row,move,AI);
     lastMove = {r: row, c: move};
     renderBoard();
-    if (aiPulseEl) aiPulseEl.classList.remove('pulsing');
+    aiPulseEl && aiPulseEl.classList.remove('pulsing');
     const winPosAI = winningPositions(board, AI);
     if(winPosAI){
         gameOver=true;
@@ -1114,6 +988,7 @@ function computerMove(){
         showOverlay('Computer wins');
         playWin();
         
+        // Update stats for loss
         totalGames++;
         winStreak = 0;
         saveGameStats();
@@ -1340,36 +1215,20 @@ function updateAvatars() {
 }
 
 function startNewGame(mode = 'single'){
-    console.log(`Starting new ${mode} game...`);
-    
     gameMode = mode;
     createBoard();
     clearWinHighlights();
     hideOverlay();
-    
-    // Ensure board is rendered
-    setTimeout(() => {
-        renderBoard();
-    }, 100);
+    renderBoard();
     
     if (mode === 'multiplayer') {
         currentPlayer = PLAYER1;
-        const opponentNameEl = getElement('opponentName');
-        const gameModeIndicatorEl = getElement('gameModeIndicator');
-        if (opponentNameEl) opponentNameEl.textContent = multiplayerSessionStats.player2.name;
-        if (gameModeIndicatorEl) gameModeIndicatorEl.textContent = 'Multiplayer';
+        document.getElementById('opponentName').textContent = multiplayerSessionStats.player2.name;
+        document.getElementById('gameModeIndicator').textContent = 'Multiplayer';
     } else {
-        isPlayerTurn = true;
-        const opponentNameEl = getElement('opponentName');
-        const gameModeIndicatorEl = getElement('gameModeIndicator');
-        if (opponentNameEl) opponentNameEl.textContent = 'Computer';
-        if (gameModeIndicatorEl) gameModeIndicatorEl.textContent = 'vs AI';
-        
-        // Update player name if signed in with Farcaster
-        if (userData) {
-            const playerNameEl = document.querySelector('.player-info .player-name');
-            if (playerNameEl) playerNameEl.textContent = userData.displayName;
-        }
+        isPlayerTurn = true; 
+        document.getElementById('opponentName').textContent = 'Computer';
+        document.getElementById('gameModeIndicator').textContent = 'vs AI';
     }
     
     gameOver = false;
@@ -1382,107 +1241,54 @@ function startMultiplayerGame() {
     startNewGame('multiplayer');
 }
 
-// Initialize game with authentication
-function initGame() {
-    console.log('🎮 Connect 4 MiniApp initializing...');
-    
-    try {
-        loadGameStats();
-        loadSettings();
-        loadFarcasterUsers();
-        
-        // Load user data if available
-        if (loadUserData()) {
-            updateAuthUI();
-        }
-        
-        updateAvatars();
-        updateStreakDisplay();
-        updateDashboardStreak();
-        
-        console.log('✅ Connect 4 MiniApp ready!');
-        return true;
-    } catch (error) {
-        console.error('❌ Game initialization error:', error);
-        return false;
-    }
-}
+// Initialize game
+loadGameStats();
+loadSettings();
 
-// Event Listeners
+// UI Event Listeners
 document.addEventListener('DOMContentLoaded', ()=>{
-    console.log('DOM fully loaded, initializing game...');
-    
-    // Initialize game first
-    if (!initGame()) {
-        console.error('Game initialization failed');
-        return;
-    }
+    loadSettings();
     
     // Dashboard buttons
-    const newGameBtn = getElement('newGameBtn');
-    const multiplayerBtn = getElement('multiplayerBtn');
-    const leaderboardBtn = getElement('leaderboardBtn');
-    const dashboardSettingsBtn = getElement('dashboardSettingsBtn');
+    document.getElementById('newGameBtn').addEventListener('click', () => {
+        startNewGame('single');
+    });
     
-    if (newGameBtn) {
-        newGameBtn.addEventListener('click', () => {
-            console.log('New Game button clicked');
-            startNewGame('single');
-        });
-    }
+    document.getElementById('multiplayerBtn').addEventListener('click', () => {
+        startMultiplayerGame();
+    });
     
-    if (multiplayerBtn) {
-        multiplayerBtn.addEventListener('click', () => {
-            startNewGame('multiplayer');
-        });
-    }
+    document.getElementById('leaderboardBtn').addEventListener('click', () => {
+        updateLeaderboardDisplay();
+        document.getElementById('leaderboardModal').classList.remove('hidden');
+    });
     
-    if (leaderboardBtn) {
-        leaderboardBtn.addEventListener('click', () => {
-            updateLeaderboardDisplay();
-            const modal = getElement('leaderboardModal');
-            if (modal) modal.classList.remove('hidden');
-        });
-    }
-    
-    if (dashboardSettingsBtn) {
-        dashboardSettingsBtn.addEventListener('click', () => {
-            const modal = getElement('settingsModal');
-            if (modal) modal.classList.remove('hidden');
-        });
-    }
-    
-    // Authentication buttons
-    const signInBtn = getElement('signInBtn');
-    const signOutBtn = getElement('signOutBtn');
-    
-    if (signInBtn) signInBtn.addEventListener('click', signIn);
-    if (signOutBtn) signOutBtn.addEventListener('click', signOut);
+    document.getElementById('dashboardSettingsBtn').addEventListener('click', () => {
+        document.getElementById('settingsModal').classList.remove('hidden');
+    });
     
     // Leaderboard tabs
     document.querySelectorAll('.leaderboard-tab').forEach(tab => {
         tab.addEventListener('click', (e) => {
             const tabName = e.target.dataset.tab;
             
+            // Update active tab
             document.querySelectorAll('.leaderboard-tab').forEach(t => t.classList.remove('active'));
             e.target.classList.add('active');
             
+            // Show corresponding leaderboard
             document.querySelectorAll('.leaderboard-list').forEach(list => list.classList.remove('active'));
-            const targetList = getElement(tabName + 'Leaderboard');
-            if (targetList) targetList.classList.add('active');
+            document.getElementById(tabName + 'Leaderboard').classList.add('active');
         });
     });
     
     // Back to dashboard from game
-    const backToDashboardBtn = getElement('backToDashboardBtn');
-    if (backToDashboardBtn) {
-        backToDashboardBtn.addEventListener('click', () => {
-            showScreen('dashboard');
-        });
-    }
+    document.getElementById('backToDashboardBtn').addEventListener('click', () => {
+        showScreen('dashboard');
+    });
     
     // Set difficulty
-    const difficultySelect = getElement('difficulty');
+    const difficultySelect = document.getElementById('difficulty');
     if(difficultySelect){
         difficultySelect.value = difficulty;
         difficultySelect.addEventListener('change', (e)=>{
@@ -1491,7 +1297,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
     }
     
     // Theme selector
-    const themeSelect = getElement('themeSelect');
+    const themeSelect = document.getElementById('themeSelect');
     if(themeSelect){
         themeSelect.value = settings.theme;
         themeSelect.addEventListener('change', (e)=>{
@@ -1500,7 +1306,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
     }
     
     // Avatar selector
-    const avatarSelect = getElement('avatarSelect');
+    const avatarSelect = document.getElementById('avatarSelect');
     if(avatarSelect){
         avatarSelect.value = settings.avatar;
         avatarSelect.addEventListener('change', (e)=>{
@@ -1511,7 +1317,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
     }
     
     // Sound toggle
-    const soundToggle = getElement('soundToggle');
+    const soundToggle = document.getElementById('soundToggle');
     if(soundToggle){
         soundToggle.checked = settings.sound;
         soundToggle.addEventListener('change', (e)=>{
@@ -1521,62 +1327,57 @@ document.addEventListener('DOMContentLoaded', ()=>{
     }
     
     // Settings modal
-    const closeSettingsBtn = getElement('closeSettingsBtn');
-    if(closeSettingsBtn) {
+    const settingsBtn = document.getElementById('dashboardSettingsBtn');
+    const settingsModal = document.getElementById('settingsModal');
+    const closeSettingsBtn = document.getElementById('closeSettingsBtn');
+    
+    if(settingsModal) {
         closeSettingsBtn.addEventListener('click', ()=>{
-            const modal = getElement('settingsModal');
-            if (modal) modal.classList.add('hidden');
+            settingsModal.classList.add('hidden');
         });
     }
     
     // Help modal
-    const helpBtn = getElement('helpBtn');
-    const closeHelpBtn = getElement('closeHelpBtn');
+    const helpBtn = document.getElementById('helpBtn');
+    const helpModal = document.getElementById('helpModal');
+    const closeHelpBtn = document.getElementById('closeHelpBtn');
     
-    if(helpBtn) {
+    if(helpBtn && helpModal) {
         helpBtn.addEventListener('click', ()=>{
-            const modal = getElement('helpModal');
-            if (modal) modal.classList.remove('hidden');
+            helpModal.classList.remove('hidden');
         });
-    }
-    
-    if(closeHelpBtn) {
+        
         closeHelpBtn.addEventListener('click', ()=>{
-            const modal = getElement('helpModal');
-            if (modal) modal.classList.add('hidden');
+            helpModal.classList.add('hidden');
         });
     }
     
     // Stats modal
-    const statsBtn = getElement('statsBtn');
-    const closeStatsBtn = getElement('closeStatsBtn');
+    const statsBtn = document.getElementById('statsBtn');
+    const statsModal = document.getElementById('statsModal');
+    const closeStatsBtn = document.getElementById('closeStatsBtn');
     
-    if(statsBtn) {
+    if(statsBtn && statsModal) {
         statsBtn.addEventListener('click', ()=>{
             updateStatsDisplay();
-            const modal = getElement('statsModal');
-            if (modal) modal.classList.remove('hidden');
+            statsModal.classList.remove('hidden');
         });
-    }
-    
-    if(closeStatsBtn) {
+        
         closeStatsBtn.addEventListener('click', ()=>{
-            const modal = getElement('statsModal');
-            if (modal) modal.classList.add('hidden');
+            statsModal.classList.add('hidden');
         });
     }
     
     // Leaderboard modal
-    const closeLeaderboardBtn = getElement('closeLeaderboardBtn');
+    const closeLeaderboardBtn = document.getElementById('closeLeaderboardBtn');
     if(closeLeaderboardBtn) {
         closeLeaderboardBtn.addEventListener('click', () => {
-            const modal = getElement('leaderboardModal');
-            if (modal) modal.classList.add('hidden');
+            document.getElementById('leaderboardModal').classList.add('hidden');
         });
     }
     
     // Play Again button in overlay
-    const overlayNewBtn = getElement('overlayNew');
+    const overlayNewBtn = document.getElementById('overlayNew');
     if(overlayNewBtn) {
         overlayNewBtn.addEventListener('click', ()=>{
             startNewGame(gameMode);
@@ -1584,7 +1385,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
     }
     
     // Dashboard button in overlay
-    const overlayDashboardBtn = getElement('overlayDashboard');
+    const overlayDashboardBtn = document.getElementById('overlayDashboard');
     if(overlayDashboardBtn) {
         overlayDashboardBtn.addEventListener('click', ()=>{
             showScreen('dashboard');
@@ -1601,6 +1402,11 @@ document.addEventListener('DOMContentLoaded', ()=>{
         });
     });
     
+    // Update avatars on load
+    updateAvatars();
+    updateStreakDisplay();
+    updateDashboardStreak();
+    
     // Show dashboard initially
     showScreen('dashboard');
 });
@@ -1614,7 +1420,27 @@ window.addEventListener('resize', ()=>{
     }, 160);
 });
 
-// Make functions available globally
+// expose for debugging
+window.__connect4 = {board, startNewGame, achievements, winStreak, showScreen};
+
+// ADD THIS TO THE END OF YOUR app.js
+function initGame() {
+    console.log('🎮 Connect 4 MiniApp initializing...');
+    
+    try {
+        loadGameStats();
+        loadSettings();
+        updateAvatars();
+        updateStreakDisplay();
+        updateDashboardStreak();
+        
+        console.log('✅ Connect 4 MiniApp ready!');
+        return true;
+    } catch (error) {
+        console.error('❌ Game initialization error:', error);
+        return false;
+    }
+}
+
+// Make it available globally
 window.initGame = initGame;
-window.startNewGame = startNewGame;
-window.__connect4 = {board, startNewGame, achievements, winStreak, showScreen, userData, signIn, signOut};
