@@ -14,13 +14,20 @@ let currentWinPositions = null;
 let gameMode = 'single';
 let currentPlayer = PLAYER1;
 
-const boardEl = document.getElementById('board');
-const aiPulseEl = document.getElementById('aiPulse');
-const sfxPlaceEl = document.getElementById('sfxPlace');
-const sfxWinEl = document.getElementById('sfxWin');
-const statusTextEl = document.getElementById('statusText');
-const playerWinsEl = document.getElementById('playerWins');
-const aiWinsEl = document.getElementById('aiWins');
+// Element references with safe fallbacks
+function getElement(id) {
+    const el = document.getElementById(id);
+    if (!el) console.warn(`Element #${id} not found`);
+    return el;
+}
+
+const boardEl = getElement('board');
+const aiPulseEl = getElement('aiPulse');
+const sfxPlaceEl = getElement('sfxPlace');
+const sfxWinEl = getElement('sfxWin');
+const statusTextEl = getElement('statusText');
+const playerWinsEl = getElement('playerWins');
+const aiWinsEl = getElement('aiWins');
 let lastMove = null;
 
 // Enhanced Game State
@@ -162,10 +169,12 @@ function loadUserData() {
 }
 
 function updateAuthUI() {
-    const authStatus = document.getElementById('authStatus');
-    const signInBtn = document.getElementById('signInBtn');
-    const userInfo = document.getElementById('userInfo');
-    const userAvatar = document.getElementById('userAvatar');
+    const authStatus = getElement('authStatus');
+    const signInBtn = getElement('signInBtn');
+    const userInfo = getElement('userInfo');
+    const userAvatar = getElement('userAvatar');
+    
+    if (!authStatus || !signInBtn || !userInfo || !userAvatar) return;
     
     if (userData) {
         // User is signed in
@@ -176,7 +185,8 @@ function updateAuthUI() {
         
         // Update player name in game if screen is active
         if (currentScreen === 'game' && gameMode === 'single') {
-            document.querySelector('.player-info .player-name').textContent = userData.displayName;
+            const playerNameEl = document.querySelector('.player-info .player-name');
+            if (playerNameEl) playerNameEl.textContent = userData.displayName;
         }
     } else {
         // User is signed out
@@ -187,8 +197,6 @@ function updateAuthUI() {
 
 // Mock token verification (replace with real API call)
 async function verifyToken(token) {
-    // In a real app, you would call your backend API
-    // For now, we'll simulate successful verification
     return new Promise(resolve => {
         setTimeout(() => resolve(true), 500);
     });
@@ -250,25 +258,38 @@ function updateFarcasterUserStats(won = false) {
     saveFarcasterUsers();
 }
 
-// Existing game functions (keeping all your original game logic)
+// Screen Management
 function showScreen(screenName) {
+    console.log(`Switching to screen: ${screenName}`);
+    
+    // Hide all screens
     document.querySelectorAll('.screen').forEach(screen => {
         screen.classList.remove('active');
         screen.classList.add('hidden');
     });
     
+    // Show target screen
     const targetScreen = document.getElementById(screenName + 'Screen');
     if (targetScreen) {
         targetScreen.classList.remove('hidden');
         targetScreen.classList.add('active');
+        
+        // Special handling for game screen
+        if (screenName === 'game') {
+            setTimeout(() => {
+                updateGameStatus();
+                updateWinCounters();
+                // Ensure board is properly sized and rendered
+                if (boardEl && board) {
+                    renderBoard();
+                }
+            }, 100);
+        }
     }
     
     currentScreen = screenName;
     
-    if (screenName === 'game') {
-        updateGameStatus();
-        updateWinCounters();
-    } else if (screenName === 'dashboard') {
+    if (screenName === 'dashboard') {
         updateDashboardStreak();
         if (gameMode === 'multiplayer') {
             resetMultiplayerSession();
@@ -283,6 +304,7 @@ function resetMultiplayerSession() {
     };
 }
 
+// Achievement Definitions
 const ACHIEVEMENTS = {
     firstWin: { 
         name: "First Blood", 
@@ -316,14 +338,6 @@ const ACHIEVEMENTS = {
         condition: (stats) => stats.easyWins >= 5,
         progress: (stats) => Math.min(stats.easyWins, 5) / 5
     },
-    streak5: { 
-        name: "Unstoppable!", 
-        desc: "Win 5 games in a row", 
-        emoji: "⚡",
-        tier: "medium",
-        condition: (stats) => stats.bestStreak >= 5,
-        progress: (stats) => Math.min(stats.bestStreak, 5) / 5
-    },
     farcasterUser: {
         name: "Farcaster Connected",
         desc: "Sign in with Farcaster account",
@@ -331,6 +345,14 @@ const ACHIEVEMENTS = {
         tier: "easy",
         condition: (stats) => stats.hasFarcaster,
         progress: (stats) => stats.hasFarcaster ? 1 : 0
+    },
+    streak5: { 
+        name: "Unstoppable!", 
+        desc: "Win 5 games in a row", 
+        emoji: "⚡",
+        tier: "medium",
+        condition: (stats) => stats.bestStreak >= 5,
+        progress: (stats) => Math.min(stats.bestStreak, 5) / 5
     }
 };
 
@@ -428,19 +450,20 @@ function updateWinCounters() {
 }
 
 function updateDashboardStreak() {
-    const streakCountEl = document.getElementById('streakCount');
+    const streakCountEl = getElement('streakCount');
     if (streakCountEl) {
         streakCountEl.textContent = winStreak;
     }
 }
 
 function updateStreakDisplay() {
-    let streakEl = document.getElementById('streakIndicator');
+    let streakEl = getElement('streakIndicator');
     if (!streakEl) {
         streakEl = document.createElement('div');
         streakEl.id = 'streakIndicator';
         streakEl.className = 'streak-indicator hidden';
-        document.querySelector('.app').appendChild(streakEl);
+        const appEl = document.querySelector('.app');
+        if (appEl) appEl.appendChild(streakEl);
     }
     
     if (winStreak >= 3) {
@@ -458,6 +481,8 @@ function updateStreakDisplay() {
 }
 
 function updateGameStatus() {
+    if (!statusTextEl) return;
+    
     if (gameOver) {
         statusTextEl.textContent = '';
         return;
@@ -557,11 +582,16 @@ function showAchievementToast(achievement) {
 }
 
 function updateStatsDisplay() {
-    document.getElementById('statTotalGames').textContent = totalGames;
-    document.getElementById('statWinRate').textContent = totalGames > 0 ? 
+    const statTotalGames = getElement('statTotalGames');
+    const statWinRate = getElement('statWinRate');
+    const statCurrentStreak = getElement('statCurrentStreak');
+    const statBestStreak = getElement('statBestStreak');
+    
+    if (statTotalGames) statTotalGames.textContent = totalGames;
+    if (statWinRate) statWinRate.textContent = totalGames > 0 ? 
         Math.round((playerWins / totalGames) * 100) + '%' : '0%';
-    document.getElementById('statCurrentStreak').textContent = winStreak;
-    document.getElementById('statBestStreak').textContent = bestStreak;
+    if (statCurrentStreak) statCurrentStreak.textContent = winStreak;
+    if (statBestStreak) statBestStreak.textContent = bestStreak;
     
     updateAchievementsList();
 }
@@ -573,7 +603,7 @@ function updateLeaderboardDisplay() {
 }
 
 function updateSinglePlayerLeaderboard() {
-    const singleLeaderboard = document.getElementById('singleLeaderboard');
+    const singleLeaderboard = getElement('singleLeaderboard');
     if (!singleLeaderboard) return;
     
     singleLeaderboard.innerHTML = '';
@@ -595,7 +625,7 @@ function updateSinglePlayerLeaderboard() {
 }
 
 function updateMultiplayerLeaderboard() {
-    const multiplayerLeaderboard = document.getElementById('multiplayerLeaderboard');
+    const multiplayerLeaderboard = getElement('multiplayerLeaderboard');
     if (!multiplayerLeaderboard) return;
     
     multiplayerLeaderboard.innerHTML = '';
@@ -635,7 +665,7 @@ function updateMultiplayerLeaderboard() {
 }
 
 function updateFarcasterLeaderboard() {
-    const farcasterLeaderboard = document.getElementById('farcasterLeaderboard');
+    const farcasterLeaderboard = getElement('farcasterLeaderboard');
     if (!farcasterLeaderboard) return;
     
     farcasterLeaderboard.innerHTML = '';
@@ -680,7 +710,7 @@ function updateFarcasterLeaderboard() {
 }
 
 function updateAchievementsList() {
-    const listEl = document.getElementById('achievementList');
+    const listEl = getElement('achievementList');
     if (!listEl) return;
     
     listEl.innerHTML = '';
@@ -762,14 +792,21 @@ function playWin(){
     }catch(e){}
 }
 
-// Game logic functions (keeping all your original game functions)
+// Game Board Functions
 function createBoard(){
+    console.log('Creating new game board...');
     board = Array.from({length:ROWS},()=>Array.from({length:COLUMNS},()=>0));
     gameStartTime = Date.now();
 }
 
 function renderBoard(){
+    if (!boardEl) {
+        console.error('Cannot render: board element not found');
+        return;
+    }
+    
     boardEl.innerHTML = '';
+    
     for(let r=0;r<ROWS;r++){
         for(let c=0;c<COLUMNS;c++){
             const cell = document.createElement('div');
@@ -912,14 +949,14 @@ function winningPositions(b, piece){
 }
 
 function showOverlay(message){
-    const overlayEl = document.getElementById('overlay');
-    const overlayMessageEl = document.getElementById('overlayMessage');
+    const overlayEl = getElement('overlay');
+    const overlayMessageEl = getElement('overlayMessage');
     if(overlayMessageEl) overlayMessageEl.textContent = message;
-    if(overlayEl){ overlayEl.classList.remove('hidden'); }
+    if(overlayEl) overlayEl.classList.remove('hidden');
 }
 
 function hideOverlay(){
-    const overlayEl = document.getElementById('overlay');
+    const overlayEl = getElement('overlay');
     if(overlayEl) overlayEl.classList.add('hidden');
 }
 
@@ -1053,7 +1090,7 @@ function handlePlayerMove(col){
         currentPlayer = currentPlayer === PLAYER1 ? PLAYER2 : PLAYER1;
     } else {
         isPlayerTurn = false;
-        aiPulseEl && aiPulseEl.classList.add('pulsing');
+        if (aiPulseEl) aiPulseEl.classList.add('pulsing');
         setTimeout(()=>computerMove(), 800);
     }
     
@@ -1069,7 +1106,7 @@ function computerMove(){
     dropPiece(row,move,AI);
     lastMove = {r: row, c: move};
     renderBoard();
-    aiPulseEl && aiPulseEl.classList.remove('pulsing');
+    if (aiPulseEl) aiPulseEl.classList.remove('pulsing');
     const winPosAI = winningPositions(board, AI);
     if(winPosAI){
         gameOver=true;
@@ -1303,26 +1340,36 @@ function updateAvatars() {
 }
 
 function startNewGame(mode = 'single'){
+    console.log(`Starting new ${mode} game...`);
+    
     gameMode = mode;
     createBoard();
     clearWinHighlights();
     hideOverlay();
-    renderBoard();
+    
+    // Ensure board is rendered
+    setTimeout(() => {
+        renderBoard();
+    }, 100);
     
     if (mode === 'multiplayer') {
         currentPlayer = PLAYER1;
-        document.getElementById('opponentName').textContent = multiplayerSessionStats.player2.name;
-        document.getElementById('gameModeIndicator').textContent = 'Multiplayer';
+        const opponentNameEl = getElement('opponentName');
+        const gameModeIndicatorEl = getElement('gameModeIndicator');
+        if (opponentNameEl) opponentNameEl.textContent = multiplayerSessionStats.player2.name;
+        if (gameModeIndicatorEl) gameModeIndicatorEl.textContent = 'Multiplayer';
     } else {
         isPlayerTurn = true;
+        const opponentNameEl = getElement('opponentName');
+        const gameModeIndicatorEl = getElement('gameModeIndicator');
+        if (opponentNameEl) opponentNameEl.textContent = 'Computer';
+        if (gameModeIndicatorEl) gameModeIndicatorEl.textContent = 'vs AI';
+        
         // Update player name if signed in with Farcaster
         if (userData) {
-            document.querySelector('.player-info .player-name').textContent = userData.displayName;
-        } else {
-            document.querySelector('.player-info .player-name').textContent = 'You';
+            const playerNameEl = document.querySelector('.player-info .player-name');
+            if (playerNameEl) playerNameEl.textContent = userData.displayName;
         }
-        document.getElementById('opponentName').textContent = 'Computer';
-        document.getElementById('gameModeIndicator').textContent = 'vs AI';
     }
     
     gameOver = false;
@@ -1363,30 +1410,54 @@ function initGame() {
 
 // Event Listeners
 document.addEventListener('DOMContentLoaded', ()=>{
-    // Initialize game
-    initGame();
+    console.log('DOM fully loaded, initializing game...');
+    
+    // Initialize game first
+    if (!initGame()) {
+        console.error('Game initialization failed');
+        return;
+    }
     
     // Dashboard buttons
-    document.getElementById('newGameBtn').addEventListener('click', () => {
-        startNewGame('single');
-    });
+    const newGameBtn = getElement('newGameBtn');
+    const multiplayerBtn = getElement('multiplayerBtn');
+    const leaderboardBtn = getElement('leaderboardBtn');
+    const dashboardSettingsBtn = getElement('dashboardSettingsBtn');
     
-    document.getElementById('multiplayerBtn').addEventListener('click', () => {
-        startMultiplayerGame();
-    });
+    if (newGameBtn) {
+        newGameBtn.addEventListener('click', () => {
+            console.log('New Game button clicked');
+            startNewGame('single');
+        });
+    }
     
-    document.getElementById('leaderboardBtn').addEventListener('click', () => {
-        updateLeaderboardDisplay();
-        document.getElementById('leaderboardModal').classList.remove('hidden');
-    });
+    if (multiplayerBtn) {
+        multiplayerBtn.addEventListener('click', () => {
+            startNewGame('multiplayer');
+        });
+    }
     
-    document.getElementById('dashboardSettingsBtn').addEventListener('click', () => {
-        document.getElementById('settingsModal').classList.remove('hidden');
-    });
+    if (leaderboardBtn) {
+        leaderboardBtn.addEventListener('click', () => {
+            updateLeaderboardDisplay();
+            const modal = getElement('leaderboardModal');
+            if (modal) modal.classList.remove('hidden');
+        });
+    }
+    
+    if (dashboardSettingsBtn) {
+        dashboardSettingsBtn.addEventListener('click', () => {
+            const modal = getElement('settingsModal');
+            if (modal) modal.classList.remove('hidden');
+        });
+    }
     
     // Authentication buttons
-    document.getElementById('signInBtn').addEventListener('click', signIn);
-    document.getElementById('signOutBtn').addEventListener('click', signOut);
+    const signInBtn = getElement('signInBtn');
+    const signOutBtn = getElement('signOutBtn');
+    
+    if (signInBtn) signInBtn.addEventListener('click', signIn);
+    if (signOutBtn) signOutBtn.addEventListener('click', signOut);
     
     // Leaderboard tabs
     document.querySelectorAll('.leaderboard-tab').forEach(tab => {
@@ -1397,17 +1468,21 @@ document.addEventListener('DOMContentLoaded', ()=>{
             e.target.classList.add('active');
             
             document.querySelectorAll('.leaderboard-list').forEach(list => list.classList.remove('active'));
-            document.getElementById(tabName + 'Leaderboard').classList.add('active');
+            const targetList = getElement(tabName + 'Leaderboard');
+            if (targetList) targetList.classList.add('active');
         });
     });
     
     // Back to dashboard from game
-    document.getElementById('backToDashboardBtn').addEventListener('click', () => {
-        showScreen('dashboard');
-    });
+    const backToDashboardBtn = getElement('backToDashboardBtn');
+    if (backToDashboardBtn) {
+        backToDashboardBtn.addEventListener('click', () => {
+            showScreen('dashboard');
+        });
+    }
     
     // Set difficulty
-    const difficultySelect = document.getElementById('difficulty');
+    const difficultySelect = getElement('difficulty');
     if(difficultySelect){
         difficultySelect.value = difficulty;
         difficultySelect.addEventListener('change', (e)=>{
@@ -1416,7 +1491,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
     }
     
     // Theme selector
-    const themeSelect = document.getElementById('themeSelect');
+    const themeSelect = getElement('themeSelect');
     if(themeSelect){
         themeSelect.value = settings.theme;
         themeSelect.addEventListener('change', (e)=>{
@@ -1425,7 +1500,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
     }
     
     // Avatar selector
-    const avatarSelect = document.getElementById('avatarSelect');
+    const avatarSelect = getElement('avatarSelect');
     if(avatarSelect){
         avatarSelect.value = settings.avatar;
         avatarSelect.addEventListener('change', (e)=>{
@@ -1436,7 +1511,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
     }
     
     // Sound toggle
-    const soundToggle = document.getElementById('soundToggle');
+    const soundToggle = getElement('soundToggle');
     if(soundToggle){
         soundToggle.checked = settings.sound;
         soundToggle.addEventListener('change', (e)=>{
@@ -1446,57 +1521,62 @@ document.addEventListener('DOMContentLoaded', ()=>{
     }
     
     // Settings modal
-    const settingsBtn = document.getElementById('dashboardSettingsBtn');
-    const settingsModal = document.getElementById('settingsModal');
-    const closeSettingsBtn = document.getElementById('closeSettingsBtn');
-    
-    if(settingsModal) {
+    const closeSettingsBtn = getElement('closeSettingsBtn');
+    if(closeSettingsBtn) {
         closeSettingsBtn.addEventListener('click', ()=>{
-            settingsModal.classList.add('hidden');
+            const modal = getElement('settingsModal');
+            if (modal) modal.classList.add('hidden');
         });
     }
     
     // Help modal
-    const helpBtn = document.getElementById('helpBtn');
-    const helpModal = document.getElementById('helpModal');
-    const closeHelpBtn = document.getElementById('closeHelpBtn');
+    const helpBtn = getElement('helpBtn');
+    const closeHelpBtn = getElement('closeHelpBtn');
     
-    if(helpBtn && helpModal) {
+    if(helpBtn) {
         helpBtn.addEventListener('click', ()=>{
-            helpModal.classList.remove('hidden');
+            const modal = getElement('helpModal');
+            if (modal) modal.classList.remove('hidden');
         });
-        
+    }
+    
+    if(closeHelpBtn) {
         closeHelpBtn.addEventListener('click', ()=>{
-            helpModal.classList.add('hidden');
+            const modal = getElement('helpModal');
+            if (modal) modal.classList.add('hidden');
         });
     }
     
     // Stats modal
-    const statsBtn = document.getElementById('statsBtn');
-    const statsModal = document.getElementById('statsModal');
-    const closeStatsBtn = document.getElementById('closeStatsBtn');
+    const statsBtn = getElement('statsBtn');
+    const closeStatsBtn = getElement('closeStatsBtn');
     
-    if(statsBtn && statsModal) {
+    if(statsBtn) {
         statsBtn.addEventListener('click', ()=>{
             updateStatsDisplay();
-            statsModal.classList.remove('hidden');
+            const modal = getElement('statsModal');
+            if (modal) modal.classList.remove('hidden');
         });
-        
+    }
+    
+    if(closeStatsBtn) {
         closeStatsBtn.addEventListener('click', ()=>{
-            statsModal.classList.add('hidden');
+            const modal = getElement('statsModal');
+            if (modal) modal.classList.add('hidden');
         });
     }
     
     // Leaderboard modal
-    const closeLeaderboardBtn = document.getElementById('closeLeaderboardBtn');
+    const closeLeaderboardBtn = getElement('closeLeaderboardBtn');
     if(closeLeaderboardBtn) {
         closeLeaderboardBtn.addEventListener('click', () => {
-            document.getElementById('leaderboardModal').classList.add('hidden');
+            const modal = getElement('leaderboardModal');
+            if (modal) modal.classList.add('hidden');
         });
     }
     
     // Play Again button in overlay
-    const overlayNewBtn = document.getElementById('overlayNew');
+    const overlayNewBtn = getElement('overlayNew');
     if(overlayNewBtn) {
         overlayNewBtn.addEventListener('click', ()=>{
             startNewGame(gameMode);
@@ -1504,7 +1584,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
     }
     
     // Dashboard button in overlay
-    const overlayDashboardBtn = document.getElementById('overlayDashboard');
+    const overlayDashboardBtn = getElement('overlayDashboard');
     if(overlayDashboardBtn) {
         overlayDashboardBtn.addEventListener('click', ()=>{
             showScreen('dashboard');
@@ -1536,4 +1616,5 @@ window.addEventListener('resize', ()=>{
 
 // Make functions available globally
 window.initGame = initGame;
+window.startNewGame = startNewGame;
 window.__connect4 = {board, startNewGame, achievements, winStreak, showScreen, userData, signIn, signOut};
