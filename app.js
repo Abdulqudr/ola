@@ -571,7 +571,7 @@ function updateStreakDisplay() {
 
 function updateGameStatus() {
     if (gameOver) {
-        statusTextEl.textContent = 'GAME OVER';
+        statusTextEl.textContent = '';
         return;
     }
     
