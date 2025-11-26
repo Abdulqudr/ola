@@ -1,18 +1,46 @@
-// Frame API endpoint - updated with auth support
+// frame.js
 module.exports = async (req, res) => {
-  // Set CORS headers
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
   
   if (req.method === 'OPTIONS') {
     return res.status(200).end();
   }
   
-  // Check for authentication header
-  const authHeader = req.headers['authorization'] || req.headers['x-farcaster-auth'];
-  const isAuthenticated = !!authHeader;
+  // Handle authentication callback
+  if (req.method === 'POST' && req.body && req.body.trustedData) {
+    try {
+      // Verify the authentication
+      const { verifySignIn } = require('@farcaster/quick-auth');
+      const { fid, username } = await verifySignIn({
+        messageBytes: req.body.trustedData.messageBytes,
+        domain: 'ola-azure.vercel.app'
+      });
+      
+      // Successful authentication
+      const frameResponse = {
+        type: 'frame',
+        frame: {
+          version: "vNext",
+          image: `https://ola-azure.vercel.app/api/welcome-image?fid=${fid}&username=${username}`,
+          buttons: [
+            {
+              label: "🎮 Play Game",
+              action: "launch_miniapp",
+              target: "https://ola-azure.vercel.app"
+            }
+          ]
+        }
+      };
+      
+      return res.status(200).json(frameResponse);
+    } catch (error) {
+      console.error('Auth error:', error);
+    }
+  }
   
+  // Default frame with sign-in button
   const frameResponse = {
     type: 'frame',
     frame: {
@@ -20,15 +48,11 @@ module.exports = async (req, res) => {
       image: "https://ola-azure.vercel.app/hero.png",
       buttons: [
         {
-          label: isAuthenticated ? "🎮 Continue Playing" : "🎮 Play Four in a Row",
-          action: "post_redirect"
+          label: "🔐 Sign In & Play",
+          action: "sign_in"
         }
       ],
       postUrl: "https://ola-azure.vercel.app/api/frame",
-    },
-    auth: {
-      required: true,
-      status: isAuthenticated ? 'authenticated' : 'unauthenticated'
     }
   };
 
