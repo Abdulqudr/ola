@@ -14,7 +14,7 @@
     "version": "next",
     "imageUrl": "https://ola-azure.vercel.app/hero.png",
     "button": {
-      "title": "Play Connect Four",
+      "title": "PLAY CONNECT FOUR",
       "action": {
         "type": "launch_miniapp",
         "name": "Four in a Row",
@@ -45,10 +45,6 @@
         <button id="multiplayerBtn" class="dashboard-btn">
           <span class="btn-icon">👥</span>
           Multiplayer
-        </button>
-        <button id="authBtn" class="dashboard-btn">
-          <span class="btn-icon">🔐</span>
-          Sign In
         </button>
         <button id="leaderboardBtn" class="dashboard-btn">
           <span class="btn-icon">🏆</span>
@@ -124,31 +120,6 @@
             <button id="overlayNew" class="btn primary">Play Again</button>
             <button id="overlayDashboard" class="btn">Dashboard</button>
           </div>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- Auth Modal -->
-  <div id="authModal" class="modal hidden" aria-hidden="true">
-    <div class="modal-content">
-      <h2>Sign In</h2>
-      <div id="authContent">
-        <div class="modal-section">
-          <p>Connect your Farcaster account to track your progress and compete on leaderboards!</p>
-        </div>
-        <div class="modal-actions">
-          <button id="signInBtn" class="btn primary">Sign In with Farcaster</button>
-          <button id="closeAuthBtn" class="btn">Maybe Later</button>
-        </div>
-      </div>
-      <div id="authSuccess" class="hidden">
-        <div class="modal-section">
-          <p>✅ Successfully signed in as FID: <span id="userFid"></span></p>
-        </div>
-        <div class="modal-actions">
-          <button id="signOutBtn" class="btn">Sign Out</button>
-          <button id="closeAuthSuccessBtn" class="btn primary">Continue Playing</button>
         </div>
       </div>
     </div>
@@ -306,183 +277,6 @@
 
   <!-- Your game logic -->
   <script src="app.js"></script>
-
-  <!-- Auth System -->
-  <script>
-    class FarcasterAuth {
-      constructor() {
-        this.token = null;
-        this.userData = null;
-        this.isInitialized = false;
-      }
-
-      async init() {
-        if (this.isInitialized) return;
-
-        try {
-          // Load saved auth state
-          const savedAuth = localStorage.getItem('connect4_auth');
-          if (savedAuth) {
-            const authData = JSON.parse(savedAuth);
-            this.token = authData.token;
-            this.userData = authData.userData;
-            this.updateAuthUI();
-          }
-
-          this.setupEventListeners();
-          this.isInitialized = true;
-        } catch (error) {
-          console.error('Auth initialization error:', error);
-        }
-      }
-
-      setupEventListeners() {
-        // Auth modal triggers
-        const authBtn = document.getElementById('authBtn');
-        const signInBtn = document.getElementById('signInBtn');
-        const signOutBtn = document.getElementById('signOutBtn');
-        const closeAuthBtn = document.getElementById('closeAuthBtn');
-        const closeAuthSuccessBtn = document.getElementById('closeAuthSuccessBtn');
-
-        if (authBtn) authBtn.addEventListener('click', () => this.showAuthModal());
-        if (signInBtn) signInBtn.addEventListener('click', () => this.signIn());
-        if (signOutBtn) signOutBtn.addEventListener('click', () => this.signOut());
-        if (closeAuthBtn) closeAuthBtn.addEventListener('click', () => this.hideAuthModal());
-        if (closeAuthSuccessBtn) closeAuthSuccessBtn.addEventListener('click', () => this.hideAuthModal());
-      }
-
-      async signIn() {
-        try {
-          // Use Farcaster Mini App SDK for authentication
-          if (typeof sdk !== 'undefined') {
-            const { token } = await sdk.quickAuth.getToken();
-            this.token = token;
-            
-            // Verify token with backend
-            const response = await fetch('/api/auth', {
-              headers: { 
-                "Authorization": `Bearer ${token}`,
-                "Content-Type": "application/json"
-              }
-            });
-            
-            if (response.ok) {
-              const userData = await response.json();
-              this.userData = userData;
-              
-              // Save auth state
-              localStorage.setItem('connect4_auth', JSON.stringify({
-                token: this.token,
-                userData: this.userData
-              }));
-              
-              this.updateAuthUI();
-              this.showAuthSuccess();
-              this.onAuthSuccess(userData);
-            } else {
-              throw new Error('Authentication failed');
-            }
-          } else {
-            // Fallback for non-miniapp environment
-            this.showDesktopAuthMessage();
-          }
-        } catch (error) {
-          console.error('Sign in error:', error);
-          alert('Sign in failed. Please try again.');
-        }
-      }
-
-      signOut() {
-        this.token = null;
-        this.userData = null;
-        localStorage.removeItem('connect4_auth');
-        this.updateAuthUI();
-        this.hideAuthModal();
-        this.onSignOut();
-      }
-
-      updateAuthUI() {
-        const authBtn = document.getElementById('authBtn');
-        const userFidEl = document.getElementById('userFid');
-        
-        if (this.userData) {
-          if (authBtn) authBtn.innerHTML = '<span class="btn-icon">👤</span> Signed In';
-          if (userFidEl) userFidEl.textContent = this.userData.fid;
-        } else {
-          if (authBtn) authBtn.innerHTML = '<span class="btn-icon">🔐</span> Sign In';
-        }
-      }
-
-      showAuthModal() {
-        const authModal = document.getElementById('authModal');
-        const authContent = document.getElementById('authContent');
-        const authSuccess = document.getElementById('authSuccess');
-        
-        if (authModal) {
-          authModal.classList.remove('hidden');
-          if (this.userData) {
-            authContent.classList.add('hidden');
-            authSuccess.classList.remove('hidden');
-          } else {
-            authContent.classList.remove('hidden');
-            authSuccess.classList.add('hidden');
-          }
-        }
-      }
-
-      hideAuthModal() {
-        const authModal = document.getElementById('authModal');
-        if (authModal) authModal.classList.add('hidden');
-      }
-
-      showAuthSuccess() {
-        const authContent = document.getElementById('authContent');
-        const authSuccess = document.getElementById('authSuccess');
-        
-        if (authContent) authContent.classList.add('hidden');
-        if (authSuccess) authSuccess.classList.remove('hidden');
-      }
-
-      showDesktopAuthMessage() {
-        alert('🔐 Authentication is available in the Farcaster mobile app. Open this mini app in Warpcast to sign in and track your progress!');
-        this.hideAuthModal();
-      }
-
-      onAuthSuccess(userData) {
-        console.log('User authenticated:', userData);
-        // You can add leaderboard integration, cloud save, etc. here
-        this.syncGameStats(userData.fid);
-      }
-
-      onSignOut() {
-        console.log('User signed out');
-        // Handle sign out cleanup
-      }
-
-      async syncGameStats(fid) {
-        // Sync local game stats with authenticated user
-        const gameStats = localStorage.getItem('four_gameStats');
-        if (gameStats) {
-          // Here you would typically send to your backend
-          console.log('Syncing stats for FID:', fid, gameStats);
-        }
-      }
-
-      isAuthenticated() {
-        return !!this.userData;
-      }
-
-      getUserData() {
-        return this.userData;
-      }
-    }
-
-    // Initialize auth when DOM is loaded
-    document.addEventListener('DOMContentLoaded', () => {
-      window.farcasterAuth = new FarcasterAuth();
-      window.farcasterAuth.init();
-    });
-  </script>
 
   <!-- OFFICIAL ESM SDK + READY CALL (fixes splash) -->
   <script type="module">
